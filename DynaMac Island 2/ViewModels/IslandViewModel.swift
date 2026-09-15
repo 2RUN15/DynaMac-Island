@@ -25,6 +25,7 @@ class IslandViewModel: ObservableObject {
     @Published var activeTransientEvent: IslandEventType? = nil
     private var transientEventTimer: Timer?
     private var batteryService = BatteryService()
+    var audioService = AudioDeviceService()
     
     // Scrub lastik bandı önleme mantığı
     @Published var ignoreUpdatesUntil: Date = Date.distantPast
@@ -73,6 +74,13 @@ class IslandViewModel: ObservableObject {
             }
             .store(in: &cancellables)
             
+        self.audioService.deviceChangePublisher
+            .receive(on: RunLoop.main)
+            .sink { [weak self] name in
+                self?.triggerDeviceEvent(name: name)
+            }
+            .store(in: &cancellables)
+            
         // Pil durumu değişimini dinle ve bildirim ekranı göster
         self.batteryService.powerChangePublisher
             .receive(on: RunLoop.main)
@@ -80,6 +88,21 @@ class IslandViewModel: ObservableObject {
                 self?.triggerBatteryEvent(state: state)
             }
             .store(in: &cancellables)
+    }
+    
+    func triggerDeviceEvent(name: String) {
+        withAnimation(.spring(response: 0.45, dampingFraction: 0.7, blendDuration: 0)) {
+            self.activeTransientEvent = .audioDevice(name: name)
+        }
+        
+        transientEventTimer?.invalidate()
+        transientEventTimer = Timer.scheduledTimer(withTimeInterval: 3.5, repeats: false) { [weak self] _ in
+            DispatchQueue.main.async {
+                withAnimation(.spring(response: 0.45, dampingFraction: 0.7, blendDuration: 0)) {
+                    self?.activeTransientEvent = nil
+                }
+            }
+        }
     }
     
     private func triggerBatteryEvent(state: BatteryState) {

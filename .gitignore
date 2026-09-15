@@ -57,3 +57,8 @@ fastlane/test_output
 .vscode/
 *.swp
 *~
+
+# AI Temporary Script Sandboxes
+.ai_scripts/
+*.py
+*.sh

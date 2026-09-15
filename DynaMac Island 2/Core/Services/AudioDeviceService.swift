@@ -7,6 +7,9 @@ import SwiftUI
 class AudioDeviceService: ObservableObject {
     @Published var deviceName: String = "MacBook"
     @Published var volume: Double = 50.0
+    @Published var isInitialLoad: Bool = true
+    let deviceChangePublisher = PassthroughSubject<String, Never>()
+    private var firstFetchCompleted = false
     private var timer: Timer?
 
     init() {
@@ -21,18 +24,31 @@ class AudioDeviceService: ObservableObject {
     }
     
     @objc private func fetchAudioState() {
-        DispatchQueue.global(qos: .userInitiated).async {
+        // Nonisolated functions called safely in background
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            guard let self = self else { return }
             let name = self.getDefaultOutputDeviceName()
             let vol = self.getSystemVolume()
             
             DispatchQueue.main.async {
+                if self.deviceName != "MacBook" && self.deviceName != name && !self.isInitialLoad {
+                    self.deviceChangePublisher.send(name)
+                }
+                
                 self.deviceName = name
                 self.volume = vol
+                
+                if !self.firstFetchCompleted {
+                    self.firstFetchCompleted = true
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                        self.isInitialLoad = false
+                    }
+                }
             }
         }
     }
     
-    private func getDefaultOutputDeviceName() -> String {
+    nonisolated private func getDefaultOutputDeviceName() -> String {
         var defaultOutputDeviceID: AudioDeviceID = kAudioObjectUnknown
         var propertyAddress = AudioObjectPropertyAddress(
             mSelector: kAudioHardwarePropertyDefaultOutputDevice,
@@ -56,7 +72,7 @@ class AudioDeviceService: ObservableObject {
         return "MacBook"
     }
     
-    private func getSystemVolume() -> Double {
+    nonisolated private func getSystemVolume() -> Double {
         let script = "output volume of (get volume settings)"
         if let result = ScriptHelper.run(script), let vol = Double(result) {
             return vol
@@ -65,7 +81,7 @@ class AudioDeviceService: ObservableObject {
     }
     
     // Ses değişimi için tetiklenecek
-    func setVolume(_ newVolume: Double) {
+    nonisolated func setVolume(_ newVolume: Double) {
         let volInt = Int(newVolume)
         DispatchQueue.global(qos: .userInitiated).async {
             _ = ScriptHelper.run("set volume output volume \(volInt)")

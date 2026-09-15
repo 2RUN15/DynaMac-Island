@@ -107,7 +107,7 @@ class MediaService: MediaServiceProtocol {
             
             let eventResult = appleScript.executeAndReturnError(&errorInfo)
             
-            if let error = errorInfo {
+            if errorInfo != nil {
                 return nil
             }
             

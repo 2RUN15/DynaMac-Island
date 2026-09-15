@@ -36,7 +36,6 @@ struct AudioVisualizerView: View {
 
 struct ContentView: View {
     @StateObject private var viewModel = IslandViewModel()
-    @StateObject private var audioService = AudioDeviceService()
     @State private var showVolumeSlider = false
     
     var body: some View {
@@ -54,6 +53,9 @@ struct ContentView: View {
             if viewModel.isExpanded {
                 if case .battery(let level, let isCharging) = viewModel.activeTransientEvent {
                     expandedBatteryView(level: level, isCharging: isCharging)
+                        .transition(.opacity.combined(with: .scale(scale: 0.9, anchor: .top)))
+                } else if case .audioDevice(let name) = viewModel.activeTransientEvent {
+                    expandedDeviceView(name: name)
                         .transition(.opacity.combined(with: .scale(scale: 0.9, anchor: .top)))
                 } else if viewModel.hasActiveMusic && !viewModel.isIdleTimeout {
                     expandedMediaView
@@ -82,6 +84,7 @@ struct ContentView: View {
         .animation(.spring(response: 0.45, dampingFraction: 0.7, blendDuration: 0), value: viewModel.isExpanded)
         .animation(.spring(response: 0.45, dampingFraction: 0.7, blendDuration: 0), value: viewModel.hasActiveMusic)
         .animation(.spring(response: 0.3), value: showVolumeSlider)
+
     }
     
     private var songKey: String {
@@ -268,7 +271,7 @@ struct ContentView: View {
                             showVolumeSlider.toggle() 
                         }
                     }) {
-                        Image(systemName: deviceIcon(for: audioService.deviceName))
+                        Image(systemName: deviceIcon(for: viewModel.audioService.deviceName))
                             .font(.system(size: 18, weight: showVolumeSlider ? .bold : .regular))
                             .foregroundColor(showVolumeSlider ? viewModel.mediaState.dominantColor : .white.opacity(0.6))
                     }
@@ -282,9 +285,9 @@ struct ContentView: View {
                             .font(.system(size: 12))
                             .foregroundColor(.white.opacity(0.6))
                         
-                        Slider(value: Binding(get: { audioService.volume }, set: { val in
-                            audioService.volume = val
-                            audioService.setVolume(val)
+                        Slider(value: Binding(get: { viewModel.audioService.volume }, set: { val in
+                            viewModel.audioService.volume = val
+                            viewModel.audioService.setVolume(val)
                         }), in: 0...100)
                         .tint(Color(red: 250/255, green: 36/255, blue: 60/255))
                         
@@ -342,6 +345,42 @@ struct ContentView: View {
         }
         .padding(.horizontal, 24)
         .padding(.top, 30) // Şarj animasyonu kameradan kurtulsun diye çok az aşağı alındı (Eski 22 -> 30)
+        .padding(.bottom, 16)
+        .frame(width: 360)
+    }
+    
+    private func expandedDeviceView(name: String) -> some View {
+        let isMac = name.lowercased().contains("macbook") || name.lowercased().contains("hoparlör") || name.lowercased().contains("speakers")
+        return HStack(spacing: 16) {
+            ZStack {
+                Circle()
+                    .fill(isMac ? Color.gray.opacity(0.2) : Color.blue.opacity(0.2))
+                    .frame(width: 48, height: 48)
+                
+                Image(systemName: deviceIcon(for: name))
+                    .font(.system(size: 24, weight: .bold))
+                    .foregroundColor(isMac ? .white : .blue)
+            }
+            
+            VStack(alignment: .leading, spacing: 4) {
+                Text(name)
+                    .font(.system(size: 16, weight: .bold))
+                    .foregroundColor(.white)
+                    .lineLimit(1)
+                
+                Text(isMac ? "Ses Çıkışı Değişti" : "Bağlandı")
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundColor(.gray)
+            }
+            
+            Spacer()
+            
+            Image(systemName: "waveform")
+                .font(.system(size: 22))
+                .foregroundColor(isMac ? .gray : .blue)
+        }
+        .padding(.horizontal, 24)
+        .padding(.top, 30)
         .padding(.bottom, 16)
         .frame(width: 360)
     }

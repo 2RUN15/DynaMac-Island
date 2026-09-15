@@ -5,6 +5,7 @@ enum IslandEventType: Equatable {
     case music(song: String, artist: String)
     case battery(level: Int, isCharging: Bool)
     case volume(level: Double)
+    case audioDevice(name: String)
     case generic(title: String, icon: String)
 }
 
