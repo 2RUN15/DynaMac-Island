@@ -17,24 +17,30 @@ class IslandViewModel: ObservableObject {
     @Published var isIdleTimeout: Bool = false
     private var idleTask: Task<Void, Never>?
     
-    // Scrub lastik bandı önleme mantığı (Seek'ten hemen sonraki pollingleri yoksaymak için)
-    @Published var ignoreUpdatesUntil: Date = Date.distantPast
-    
     // Takvim mantığı
     @Published var calendarEvents: [CalendarEvent] = []
     private var calendarService = CalendarService()
+    
+    // Batarya ve Anlık Bildirim (Transient Event) Mantığı
+    @Published var activeTransientEvent: IslandEventType? = nil
+    private var transientEventTimer: Timer?
+    private var batteryService = BatteryService()
+    
+    // Scrub lastik bandı önleme mantığı
+    @Published var ignoreUpdatesUntil: Date = Date.distantPast
+    private var hasInitializedPlayState = false
     
     var hasActiveMusic: Bool {
         return mediaState.song != "Şu An Çalınmıyor" && !mediaState.song.isEmpty
     }
     
     var isExpanded: Bool {
-        return isHovered
+        // Eğer fare ile üzerine gelinmişse VEYA geçici bir bildirim (örn: pil) gösteriliyorsa adayı genişlet
+        return isHovered || activeTransientEvent != nil
     }
     
     private let mediaService: MediaServiceProtocol
     private var cancellables = Set<AnyCancellable>()
-    private var hasInitializedPlayState = false
     
     init(mediaService: MediaServiceProtocol? = nil) {
         self.mediaService = mediaService ?? MediaService()
@@ -66,6 +72,29 @@ class IslandViewModel: ObservableObject {
                 }
             }
             .store(in: &cancellables)
+            
+        // Pil durumu değişimini dinle ve bildirim ekranı göster
+        self.batteryService.powerChangePublisher
+            .receive(on: RunLoop.main)
+            .sink { [weak self] state in
+                self?.triggerBatteryEvent(state: state)
+            }
+            .store(in: &cancellables)
+    }
+    
+    private func triggerBatteryEvent(state: BatteryState) {
+        withAnimation(.spring(response: 0.45, dampingFraction: 0.7, blendDuration: 0)) {
+            self.activeTransientEvent = .battery(level: state.level, isCharging: state.isPlugged)
+        }
+        
+        transientEventTimer?.invalidate()
+        transientEventTimer = Timer.scheduledTimer(withTimeInterval: 4.5, repeats: false) { [weak self] _ in
+            DispatchQueue.main.async {
+                withAnimation(.spring(response: 0.45, dampingFraction: 0.7, blendDuration: 0)) {
+                    self?.activeTransientEvent = nil
+                }
+            }
+        }
     }
     
     private func handlePlayStateChange(_ isPlaying: Bool) {
@@ -120,8 +149,6 @@ class IslandViewModel: ObservableObject {
     }
     
     func seekTime(to time: TimeInterval) {
-        // Çubuğu bıraktıktan sonra 2 saniye boyunca müzik dinleyicisinden gelen saniyeleri engelle.
-        // Böylece "eski" saniyeye hoplama/titreme olmadan doğrudan müziğin atlamasını sağlamış olursun.
         ignoreUpdatesUntil = Date().addingTimeInterval(2.0)
         mediaService.setPlayerPosition(to: time)
     }
