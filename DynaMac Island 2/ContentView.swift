@@ -286,7 +286,7 @@ struct ContentView: View {
                             audioService.volume = val
                             audioService.setVolume(val)
                         }), in: 0...100)
-                        .tint(viewModel.mediaState.dominantColor)
+                        .tint(Color(red: 250/255, green: 36/255, blue: 60/255))
                         
                         Image(systemName: "speaker.wave.3.fill")
                             .font(.system(size: 12))

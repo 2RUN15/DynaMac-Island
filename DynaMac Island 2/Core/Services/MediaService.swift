@@ -191,10 +191,26 @@ class MediaService: MediaServiceProtocol {
             
             if isSpotifyRunning && isMusicRunning {
                 let spotifyState = self.executeScript("tell application \"Spotify\" to player state as string") ?? ""
-                if spotifyState.lowercased().contains("playing") {
+                let musicState = self.executeScript("tell application \"Music\" to player state as string") ?? ""
+                
+                let isSpotifyPlaying = spotifyState.lowercased().contains("playing")
+                let isMusicPlaying = musicState.lowercased().contains("playing")
+                
+                if isSpotifyPlaying {
                     targetApp = .spotify
-                } else {
+                } else if isMusicPlaying {
                     targetApp = .music
+                } else {
+                    // Eğer ikisi de duraklatılmış (paused) ise, son aktif olanı veya durumu paused olanı tut
+                    if self.activePlayer == .spotify && spotifyState.lowercased().contains("paused") {
+                        targetApp = .spotify
+                    } else if self.activePlayer == .music && musicState.lowercased().contains("paused") {
+                        targetApp = .music
+                    } else if spotifyState.lowercased().contains("paused") {
+                        targetApp = .spotify
+                    } else {
+                        targetApp = .music
+                    }
                 }
             } else if isSpotifyRunning {
                 targetApp = .spotify
@@ -212,6 +228,9 @@ class MediaService: MediaServiceProtocol {
             }
             
             // YENİ: Parçalanmış ve ÇOK DAHA güvenilir (Robust) Veri Çekme Lojik Katmanı
+            let shuffleProperty = app == .spotify ? "shuffling" : "shuffle enabled"
+            let artScript = app == .spotify ? "\n                try\n                    set theArtUrl to artwork url of current track\n                end try" : ""
+            
             let script = """
             tell application "\(app.rawValue)"
                 try
@@ -223,44 +242,35 @@ class MediaService: MediaServiceProtocol {
                 if theState is "stopped" then return ""
                 
                 try
-                    set theName to name of current track
+                    set theName to name of current track as string
                 on error
                     set theName to "Bilinmeyen Şarkı"
                 end try
                 
                 try
-                    set theArtist to artist of current track
+                    set theArtist to artist of current track as string
                 on error
                     set theArtist to "Bilinmeyen Sanatçı"
                 end try
                 
                 try
-                    set theDuration to duration of current track
+                    set theDuration to (duration of current track) as string
                 on error
-                    set theDuration to 1
+                    set theDuration to "1"
                 end try
                 
                 try
-                    set thePosition to player position
+                    set thePosition to (player position) as string
                 on error
-                    set thePosition to 0
+                    set thePosition to "0"
                 end try
                 
-                set theShuffle to false
+                set theShuffle to "false"
                 try
-                    if "\(app.rawValue)" is "Spotify" then
-                        set theShuffle to shuffling
-                    else
-                        set theShuffle to shuffle enabled
-                    end if
+                    set theShuffle to (\(shuffleProperty)) as string
                 end try
                 
-                set theArtUrl to "NONE"
-                if "\(app.rawValue)" is "Spotify" then
-                    try
-                        set theArtUrl to artwork url of current track
-                    end try
-                end if
+                set theArtUrl to "NONE" \(artScript)
                 
                 return theName & "|||" & theArtist & "|||" & theState & "|||" & theDuration & "|||" & thePosition & "|||" & theArtUrl & "|||" & theShuffle
             end tell
