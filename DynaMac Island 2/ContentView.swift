@@ -91,76 +91,135 @@ struct ContentView: View {
         return "\(viewModel.mediaState.song)-\(viewModel.mediaState.artist)"
     }
     
-    static let dateFormatter: DateFormatter = {
+    static let monthFormatter: DateFormatter = {
         let formatter = DateFormatter()
-        formatter.dateStyle = .medium
-        formatter.timeStyle = .none
+        formatter.dateFormat = "MMMM yyyy"
         formatter.locale = Locale(identifier: "tr_TR")
         return formatter
     }()
     
+    private func getWeekDays() -> [(id: Int, dayName: String, dayNum: String, isToday: Bool)] {
+        let cal = Calendar.current
+        let today = Date()
+        var days: [(id: Int, dayName: String, dayNum: String, isToday: Bool)] = []
+        
+        let formatterName = DateFormatter()
+        formatterName.dateFormat = "E"
+        formatterName.locale = Locale(identifier: "tr_TR")
+        
+        let formatterNum = DateFormatter()
+        formatterNum.dateFormat = "d"
+        formatterNum.locale = Locale(identifier: "tr_TR")
+        
+        for i in -3...3 {
+            if let d = cal.date(byAdding: .day, value: i, to: today) {
+                days.append((id: i, dayName: formatterName.string(from: d), dayNum: formatterNum.string(from: d), isToday: i == 0))
+            }
+        }
+        return days
+    }
+    
     private var expandedCalendarView: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack {
-                Image(systemName: "calendar")
-                    .font(.system(size: 18, weight: .bold))
-                    .foregroundColor(.red)
-                Text("Bugün")
-                    .font(.system(size: 18, weight: .bold, design: .default))
-                    .foregroundColor(.white)
+        VStack(alignment: .leading, spacing: 18) {
+            // HEADER BAR
+            HStack(alignment: .center) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(Date(), formatter: Self.monthFormatter)
+                        .font(.system(size: 13, weight: .bold))
+                        .foregroundColor(.red)
+                        .textCase(.uppercase)
+                    
+                    Text("Bugün")
+                        .font(.system(size: 28, weight: .bold, design: .rounded))
+                        .foregroundColor(.white)
+                }
                 
                 Spacer()
                 
-                Text(Date(), formatter: Self.dateFormatter)
-                    .font(.system(size: 14, weight: .semibold, design: .rounded))
-                    .foregroundColor(.gray)
+                Button(action: {
+                    if let url = URL(string: "ical://") {
+                        NSWorkspace.shared.open(url)
+                    } else {
+                        let urlRaw = URL(fileURLWithPath: "/System/Applications/Calendar.app")
+                        NSWorkspace.shared.open(urlRaw)
+                    }
+                }) {
+                    Image(systemName: "plus.circle.fill")
+                        .font(.system(size: 32))
+                        .foregroundColor(.white.opacity(0.85))
+                        .shadow(color: .black.opacity(0.3), radius: 3, x: 0, y: 2)
+                }
+                .buttonStyle(.plain)
             }
-            .padding(.bottom, 4)
             
-            if viewModel.calendarEvents.isEmpty {
-                HStack {
-                    Spacer()
+            // WEEK STRIP (7 DAYS)
+            HStack(spacing: 8) {
+                ForEach(getWeekDays(), id: \.id) { day in
                     VStack(spacing: 8) {
-                        Image(systemName: "cup.and.saucer.fill")
-                            .font(.system(size: 24))
-                            .foregroundColor(.gray.opacity(0.5))
-                        Text("Bugün yaklaşan etkinlik yok.")
+                        Text(day.dayName.prefix(3).uppercased())
+                            .font(.system(size: 11, weight: .bold))
+                            .foregroundColor(day.isToday ? .red : .gray.opacity(0.8))
+                        
+                        Text(day.dayNum)
+                            .font(.system(size: 16, weight: day.isToday ? .bold : .medium))
+                            .foregroundColor(day.isToday ? .white : .white.opacity(0.8))
+                            .frame(width: 38, height: 38)
+                            .background(day.isToday ? Color.red : Color.white.opacity(0.06))
+                            .clipShape(Circle())
+                    }
+                    .frame(maxWidth: .infinity)
+                }
+            }
+            .padding(.vertical, 6)
+            
+            // EVENTS LIST
+            VStack(spacing: 10) {
+                if viewModel.calendarEvents.isEmpty {
+                    VStack(spacing: 12) {
+                        Image(systemName: "calendar.badge.clock")
+                            .font(.system(size: 36))
+                            .foregroundColor(.white.opacity(0.15))
+                        Text("Günün geri kalanında etkinlik yok.\nRahatına bak. ☕️")
+                            .multilineTextAlignment(.center)
+                            .lineLimit(2)
                             .foregroundColor(.gray)
                             .font(.system(size: 14, weight: .medium))
                     }
-                    .padding(.vertical, 8)
-                    Spacer()
-                }
-            } else {
-                ForEach(viewModel.calendarEvents) { event in
-                    HStack(spacing: 14) {
-                        RoundedRectangle(cornerRadius: 3)
-                            .fill(event.color)
-                            .frame(width: 4)
-                            .frame(maxHeight: .infinity)
-                        
-                        VStack(alignment: .leading, spacing: 4) {
-                            Text(event.title)
-                                .font(.system(size: 15, weight: .semibold, design: .default))
-                                .foregroundColor(.white)
-                                .lineLimit(1)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 30)
+                } else {
+                    let eventsToShow = Array(viewModel.calendarEvents.prefix(3))
+                    ForEach(eventsToShow, id: \.id) { event in
+                        HStack(spacing: 14) {
+                            RoundedRectangle(cornerRadius: 3)
+                                .fill(event.color)
+                                .frame(width: 4)
+                                .frame(height: 44)
                             
-                            Text(event.timeString)
-                                .font(.system(size: 13, weight: .medium, design: .rounded))
-                                .foregroundColor(.gray)
+                            VStack(alignment: .leading, spacing: 4) {
+                                Text(event.title)
+                                    .font(.system(size: 15, weight: .semibold, design: .default))
+                                    .foregroundColor(.white)
+                                    .lineLimit(1)
+                                
+                                Text(event.timeString)
+                                    .font(.system(size: 13, weight: .medium, design: .rounded))
+                                    .foregroundColor(.gray)
+                            }
+                            
+                            Spacer()
                         }
-                        
-                        Spacer()
+                        .padding(.vertical, 8)
+                        .padding(.horizontal, 12)
+                        .background(Color.white.opacity(0.04))
+                        .cornerRadius(12)
                     }
-                    .frame(height: 40)
-                    .background(Color.white.opacity(0.04))
-                    .cornerRadius(8)
                 }
             }
         }
-        .padding(.horizontal, 24)
+        .padding(.horizontal, 26)
         .padding(.vertical, 24)
-        .frame(width: 360)
+        .frame(width: 380)
     }
     
     private var expandedMediaView: some View {

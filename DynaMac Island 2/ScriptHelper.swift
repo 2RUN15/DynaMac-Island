@@ -1,7 +1,7 @@
 import Foundation
 
 struct ScriptHelper {
-    static func run(_ script: String) -> String? {
+    nonisolated static func run(_ script: String) -> String? {
         let task = Process()
         task.launchPath = "/usr/bin/osascript"
         task.arguments = ["-e", script]

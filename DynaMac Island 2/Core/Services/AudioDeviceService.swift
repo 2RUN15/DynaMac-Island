@@ -17,13 +17,14 @@ class AudioDeviceService: ObservableObject {
     }
     
     private func startPolling() {
+        // Derleyici (Strict Concurrency) uyarılarını kaldırmak için doğrudan çağırım 
         timer = Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true) { [weak self] _ in
             self?.fetchAudioState()
         }
         fetchAudioState() // Initial fetch
     }
     
-    @objc private func fetchAudioState() {
+    nonisolated private func fetchAudioState() {
         // Nonisolated functions called safely in background
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             guard let self = self else { return }
