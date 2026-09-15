@@ -48,6 +48,10 @@ struct ContentView: View {
         .frame(minWidth: 400, minHeight: 300, alignment: .top)
     }
     
+    private var isIslandInvisible: Bool {
+        return !viewModel.isExpanded && (!viewModel.hasActiveMusic || viewModel.isIdleTimeout)
+    }
+    
     private var islandContainer: some View {
         VStack(spacing: 0) {
             if viewModel.isExpanded {
@@ -68,9 +72,9 @@ struct ContentView: View {
                 idleIslandView
             }
         }
-        .background(Color.black)
+        .background(isIslandInvisible ? Color.black.opacity(0.001) : Color.black)
         .clipShape(RoundedRectangle(cornerRadius: viewModel.isExpanded ? 44 : 9, style: .continuous))
-        .shadow(color: .black.opacity(0.4), radius: 15, x: 0, y: 10)
+        .shadow(color: isIslandInvisible ? .clear : .black.opacity(0.4), radius: 15, x: 0, y: 10)
         .onHover { hovering in
             if viewModel.activeTransientEvent == nil {
                 withAnimation(.spring(response: 0.45, dampingFraction: 0.7, blendDuration: 0)) {
@@ -120,17 +124,17 @@ struct ContentView: View {
     }
     
     private var expandedCalendarView: some View {
-        VStack(alignment: .leading, spacing: 18) {
+        VStack(alignment: .leading, spacing: 14) {
             // HEADER BAR
             HStack(alignment: .center) {
-                VStack(alignment: .leading, spacing: 2) {
+                VStack(alignment: .leading, spacing: 1) {
                     Text(Date(), formatter: Self.monthFormatter)
-                        .font(.system(size: 13, weight: .bold))
+                        .font(.system(size: 11, weight: .bold))
                         .foregroundColor(.red)
                         .textCase(.uppercase)
                     
                     Text("Bugün")
-                        .font(.system(size: 28, weight: .bold, design: .rounded))
+                        .font(.system(size: 20, weight: .bold, design: .rounded))
                         .foregroundColor(.white)
                 }
                 
@@ -145,7 +149,7 @@ struct ContentView: View {
                     }
                 }) {
                     Image(systemName: "plus.circle.fill")
-                        .font(.system(size: 32))
+                        .font(.system(size: 22))
                         .foregroundColor(.white.opacity(0.85))
                         .shadow(color: .black.opacity(0.3), radius: 3, x: 0, y: 2)
                 }
@@ -153,73 +157,73 @@ struct ContentView: View {
             }
             
             // WEEK STRIP (7 DAYS)
-            HStack(spacing: 8) {
+            HStack(spacing: 6) {
                 ForEach(getWeekDays(), id: \.id) { day in
-                    VStack(spacing: 8) {
+                    VStack(spacing: 4) {
                         Text(day.dayName.prefix(3).uppercased())
-                            .font(.system(size: 11, weight: .bold))
+                            .font(.system(size: 9, weight: .bold))
                             .foregroundColor(day.isToday ? .red : .gray.opacity(0.8))
                         
                         Text(day.dayNum)
-                            .font(.system(size: 16, weight: day.isToday ? .bold : .medium))
+                            .font(.system(size: 13, weight: day.isToday ? .bold : .medium))
                             .foregroundColor(day.isToday ? .white : .white.opacity(0.8))
-                            .frame(width: 38, height: 38)
+                            .frame(width: 30, height: 30)
                             .background(day.isToday ? Color.red : Color.white.opacity(0.06))
                             .clipShape(Circle())
                     }
                     .frame(maxWidth: .infinity)
                 }
             }
-            .padding(.vertical, 6)
+            .padding(.vertical, 4)
             
             // EVENTS LIST
-            VStack(spacing: 10) {
+            VStack(spacing: 8) {
                 if viewModel.calendarEvents.isEmpty {
-                    VStack(spacing: 12) {
+                    VStack(spacing: 8) {
                         Image(systemName: "calendar.badge.clock")
-                            .font(.system(size: 36))
+                            .font(.system(size: 26))
                             .foregroundColor(.white.opacity(0.15))
                         Text("Günün geri kalanında etkinlik yok.\nRahatına bak. ☕️")
                             .multilineTextAlignment(.center)
                             .lineLimit(2)
                             .foregroundColor(.gray)
-                            .font(.system(size: 14, weight: .medium))
+                            .font(.system(size: 12, weight: .medium))
                     }
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 30)
+                    .padding(.vertical, 16)
                 } else {
-                    let eventsToShow = Array(viewModel.calendarEvents.prefix(3))
+                    let eventsToShow = Array(viewModel.calendarEvents.prefix(2))
                     ForEach(eventsToShow, id: \.id) { event in
-                        HStack(spacing: 14) {
+                        HStack(spacing: 12) {
                             RoundedRectangle(cornerRadius: 3)
                                 .fill(event.color)
                                 .frame(width: 4)
-                                .frame(height: 44)
+                                .frame(height: 34)
                             
-                            VStack(alignment: .leading, spacing: 4) {
+                            VStack(alignment: .leading, spacing: 2) {
                                 Text(event.title)
-                                    .font(.system(size: 15, weight: .semibold, design: .default))
+                                    .font(.system(size: 13, weight: .semibold, design: .default))
                                     .foregroundColor(.white)
                                     .lineLimit(1)
                                 
                                 Text(event.timeString)
-                                    .font(.system(size: 13, weight: .medium, design: .rounded))
+                                    .font(.system(size: 11, weight: .medium, design: .rounded))
                                     .foregroundColor(.gray)
                             }
                             
                             Spacer()
                         }
-                        .padding(.vertical, 8)
-                        .padding(.horizontal, 12)
+                        .padding(.vertical, 6)
+                        .padding(.horizontal, 10)
                         .background(Color.white.opacity(0.04))
-                        .cornerRadius(12)
+                        .cornerRadius(10)
                     }
                 }
             }
         }
-        .padding(.horizontal, 26)
-        .padding(.vertical, 24)
-        .frame(width: 380)
+        .padding(.horizontal, 22)
+        .padding(.vertical, 22)
+        .frame(width: 360)
     }
     
     private var expandedMediaView: some View {

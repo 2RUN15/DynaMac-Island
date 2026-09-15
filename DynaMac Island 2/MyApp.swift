@@ -52,7 +52,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         panel.isOpaque = false
         panel.backgroundColor = .clear
         panel.hasShadow = false
-        panel.level = .screenSaver
+        panel.sharingType = .none
+        panel.animationBehavior = .none
+        panel.level = .statusBar
         panel.collectionBehavior = [
             .canJoinAllSpaces, 
             .stationary, 
