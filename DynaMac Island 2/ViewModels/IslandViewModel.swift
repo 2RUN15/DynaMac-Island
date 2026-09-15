@@ -44,7 +44,7 @@ class IslandViewModel: ObservableObject {
     
     init(mediaService: MediaServiceProtocol? = nil) {
         self.mediaService = mediaService ?? MediaService()
-        self.mediaState = MediaState(song: "", artist: "", coverIcon: "", isPlaying: false, currentTime: 0, duration: 1, artworkImage: nil, dominantColor: .purple)
+        self.mediaState = MediaState(song: "", artist: "", coverIcon: "", isPlaying: false, currentTime: 0, duration: 1, artworkImage: nil, dominantColor: .purple, isShuffleEnabled: false)
         
         self.calendarService.$upcomingEvents
             .receive(on: RunLoop.main)
@@ -136,6 +136,10 @@ class IslandViewModel: ObservableObject {
         #endif
     }
     
+    func toggleShuffle() {
+        mediaService.toggleShuffle()
+    }
+
     func togglePlayPause() {
         mediaService.togglePlayPause()
     }

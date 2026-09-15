@@ -36,6 +36,8 @@ struct AudioVisualizerView: View {
 
 struct ContentView: View {
     @StateObject private var viewModel = IslandViewModel()
+    @StateObject private var audioService = AudioDeviceService()
+    @State private var showVolumeSlider = false
     
     var body: some View {
         ZStack(alignment: .top) {
@@ -72,44 +74,14 @@ struct ContentView: View {
                 withAnimation(.spring(response: 0.45, dampingFraction: 0.7, blendDuration: 0)) {
                     viewModel.isHovered = hovering
                 }
+                if !hovering {
+                    withAnimation { showVolumeSlider = false } // adadan çıkınca volume gizlensin
+                }
             }
         }
         .animation(.spring(response: 0.45, dampingFraction: 0.7, blendDuration: 0), value: viewModel.isExpanded)
         .animation(.spring(response: 0.45, dampingFraction: 0.7, blendDuration: 0), value: viewModel.hasActiveMusic)
-    }
-    
-    private func expandedBatteryView(level: Int, isCharging: Bool) -> some View {
-        HStack(spacing: 16) {
-            ZStack {
-                Circle()
-                    .fill(isCharging ? Color.green.opacity(0.2) : Color.orange.opacity(0.2))
-                    .frame(width: 48, height: 48)
-                
-                Image(systemName: isCharging ? "bolt.fill" : "battery.50")
-                    .font(.system(size: 24, weight: .bold))
-                    .foregroundColor(isCharging ? .green : .orange)
-            }
-            
-            VStack(alignment: .leading, spacing: 4) {
-                Text(isCharging ? "Şarj Ediliyor" : "Pilde Çalışıyor")
-                    .font(.system(size: 16, weight: .bold))
-                    .foregroundColor(.white)
-                
-                Text(isCharging ? "Güç bağlantısı kuruldu" : "Kablodan çıkarıldı")
-                    .font(.system(size: 13, weight: .medium))
-                    .foregroundColor(.gray)
-            }
-            
-            Spacer()
-            
-            Text("%\(level)")
-                .font(.system(size: 28, weight: .bold, design: .rounded))
-                .foregroundColor(isCharging ? .green : .white)
-        }
-        .padding(.horizontal, 24)
-        .padding(.top, 30) // Şarj animasyonu kameradan kurtulsun diye çok az aşağı alındı (Eski 22 -> 30)
-        .padding(.bottom, 16)
-        .frame(width: 360)
+        .animation(.spring(response: 0.3), value: showVolumeSlider)
     }
     
     private var songKey: String {
@@ -256,35 +228,121 @@ struct ContentView: View {
             }
             .padding(.horizontal, 22)
             
-            HStack(spacing: 40) {
-                Button(action: {
-                    withAnimation { viewModel.previousTrack() }
-                }) {
-                    Image(systemName: "backward.fill")
-                        .font(.system(size: 24))
-                }
-                
-                Button(action: {
-                    withAnimation(.spring(response: 0.3, dampingFraction: 0.5)) { 
-                        viewModel.togglePlayPause() 
+            VStack(spacing: 16) {
+                HStack(spacing: 28) {
+                    // Mix / Shuffle Button
+                    Button(action: {
+                        withAnimation { viewModel.toggleShuffle() }
+                    }) {
+                        Image(systemName: "shuffle")
+                            .font(.system(size: 18, weight: viewModel.mediaState.isShuffleEnabled ? .bold : .regular))
+                            .foregroundColor(viewModel.mediaState.isShuffleEnabled ? viewModel.mediaState.dominantColor : .white.opacity(0.6))
                     }
-                }) {
-                    Image(systemName: viewModel.mediaState.isPlaying ? "pause.fill" : "play.fill")
-                        .font(.system(size: 32))
+                    
+                    Button(action: {
+                        withAnimation { viewModel.previousTrack() }
+                    }) {
+                        Image(systemName: "backward.fill")
+                            .font(.system(size: 22))
+                    }
+                    
+                    Button(action: {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.5)) { 
+                            viewModel.togglePlayPause() 
+                        }
+                    }) {
+                        Image(systemName: viewModel.mediaState.isPlaying ? "pause.fill" : "play.fill")
+                            .font(.system(size: 30))
+                    }
+                    
+                    Button(action: {
+                        withAnimation { viewModel.nextTrack() }
+                    }) {
+                        Image(systemName: "forward.fill")
+                            .font(.system(size: 22))
+                    }
+                    
+                    // Device Source Button
+                    Button(action: {
+                        withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) { 
+                            showVolumeSlider.toggle() 
+                        }
+                    }) {
+                        Image(systemName: deviceIcon(for: audioService.deviceName))
+                            .font(.system(size: 18, weight: showVolumeSlider ? .bold : .regular))
+                            .foregroundColor(showVolumeSlider ? viewModel.mediaState.dominantColor : .white.opacity(0.6))
+                    }
                 }
+                .foregroundColor(.white)
+                .buttonStyle(.plain)
                 
-                Button(action: {
-                    withAnimation { viewModel.nextTrack() }
-                }) {
-                    Image(systemName: "forward.fill")
-                        .font(.system(size: 24))
+                if showVolumeSlider {
+                    HStack(spacing: 12) {
+                        Image(systemName: "speaker.fill")
+                            .font(.system(size: 12))
+                            .foregroundColor(.white.opacity(0.6))
+                        
+                        Slider(value: Binding(get: { audioService.volume }, set: { val in
+                            audioService.volume = val
+                            audioService.setVolume(val)
+                        }), in: 0...100)
+                        .tint(viewModel.mediaState.dominantColor)
+                        
+                        Image(systemName: "speaker.wave.3.fill")
+                            .font(.system(size: 12))
+                            .foregroundColor(.white.opacity(0.6))
+                    }
+                    .padding(.horizontal, 32)
+                    .frame(height: 12)
+                    .transition(.move(edge: .top).combined(with: .opacity))
                 }
             }
-            .foregroundColor(.white)
-            .buttonStyle(.plain)
-            .padding(.bottom, 22)
+            .padding(.bottom, showVolumeSlider ? 22 : 22)
             .padding(.top, 4)
         }
+        .frame(width: 360)
+    }
+    
+    private func deviceIcon(for deviceName: String) -> String {
+        let name = deviceName.lowercased()
+        if name.contains("pro") && (name.contains("airpod") || name.contains("airpods")) { return "airpodspro" }
+        if name.contains("max") && (name.contains("airpod") || name.contains("airpods")) { return "airpodsmax" }
+        if name.contains("airpod") || name.contains("airpods") { return "airpods" }
+        if name.contains("beats") { return "beats.headphones" }
+        return "macbook"
+    }
+    
+    private func expandedBatteryView(level: Int, isCharging: Bool) -> some View {
+        HStack(spacing: 16) {
+            ZStack {
+                Circle()
+                    .fill(isCharging ? Color.green.opacity(0.2) : Color.orange.opacity(0.2))
+                    .frame(width: 48, height: 48)
+                
+                Image(systemName: isCharging ? "bolt.fill" : "battery.50")
+                    .font(.system(size: 24, weight: .bold))
+                    .foregroundColor(isCharging ? .green : .orange)
+            }
+            
+            VStack(alignment: .leading, spacing: 4) {
+                Text(isCharging ? "Şarj Ediliyor" : "Pilde Çalışıyor")
+                    .font(.system(size: 16, weight: .bold))
+                    .foregroundColor(.white)
+                
+                Text(isCharging ? "Güç bağlantısı kuruldu" : "Kablodan çıkarıldı")
+                    .font(.system(size: 13, weight: .medium))
+                    .foregroundColor(.gray)
+            }
+            
+            Spacer()
+            
+            Text("%\(level)")
+                .font(.system(size: 28, weight: .bold, design: .rounded))
+                .foregroundColor(isCharging ? .green : .white)
+        }
+        .padding(.horizontal, 24)
+        .padding(.top, 30) // Şarj animasyonu kameradan kurtulsun diye çok az aşağı alındı (Eski 22 -> 30)
+        .padding(.bottom, 16)
         .frame(width: 360)
     }
     

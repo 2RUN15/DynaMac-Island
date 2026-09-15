@@ -43,6 +43,7 @@ protocol MediaServiceProtocol: AnyObject {
     func nextTrack()
     func previousTrack()
     func setPlayerPosition(to time: TimeInterval)
+    func toggleShuffle()
 }
 
 enum MediaPlayerType: String {
@@ -80,7 +81,8 @@ class MediaService: MediaServiceProtocol {
             currentTime: 0.0,
             duration: 1.0,
             artworkImage: nil,
-            dominantColor: .purple
+            dominantColor: .purple,
+            isShuffleEnabled: false
         )
         
         startPolling()
@@ -113,6 +115,20 @@ class MediaService: MediaServiceProtocol {
         }
     }
     
+    func toggleShuffle() {
+        guard let app = activePlayer else { return }
+        DispatchQueue.global(qos: .userInitiated).async {
+            let getStateScript = app == .spotify ? "get shuffling" : "get shuffle enabled"
+            let setStateScript = app == .spotify ? "set shuffling to " : "set shuffle enabled to "
+            
+            let currentState = self.executeScript("tell application \"\(app.rawValue)\" to \(getStateScript)") == "true"
+            let newState = !currentState
+            
+            _ = self.executeScript("tell application \"\(app.rawValue)\" to \(setStateScript)\(newState)")
+            self.pollImmediately()
+        }
+    }
+
     func togglePlayPause() {
         guard let app = activePlayer else { return }
         DispatchQueue.global(qos: .userInitiated).async {
@@ -230,6 +246,15 @@ class MediaService: MediaServiceProtocol {
                     set thePosition to 0
                 end try
                 
+                set theShuffle to false
+                try
+                    if "\(app.rawValue)" is "Spotify" then
+                        set theShuffle to shuffling
+                    else
+                        set theShuffle to shuffle enabled
+                    end if
+                end try
+                
                 set theArtUrl to "NONE"
                 if "\(app.rawValue)" is "Spotify" then
                     try
@@ -237,7 +262,7 @@ class MediaService: MediaServiceProtocol {
                     end try
                 end if
                 
-                return theName & "|||" & theArtist & "|||" & theState & "|||" & theDuration & "|||" & thePosition & "|||" & theArtUrl
+                return theName & "|||" & theArtist & "|||" & theState & "|||" & theDuration & "|||" & thePosition & "|||" & theArtUrl & "|||" & theShuffle
             end tell
             """
             
@@ -324,6 +349,8 @@ class MediaService: MediaServiceProtocol {
         if duration > 10000 { duration /= 1000 }
         if duration <= 0 { duration = 1.0 }
         
+        let isShuffle = components.indices.contains(6) ? (components[6].lowercased() == "true") : false
+        
         return MediaState(
             song: song,
             artist: artist,
@@ -331,8 +358,9 @@ class MediaService: MediaServiceProtocol {
             isPlaying: isPlaying,
             currentTime: currentTime,
             duration: duration,
-            artworkImage: nil, // Referans güncelleniyor
-            dominantColor: .purple
+            artworkImage: nil,
+            dominantColor: .purple,
+            isShuffleEnabled: isShuffle
         )
     }
     
