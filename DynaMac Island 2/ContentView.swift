@@ -40,12 +40,12 @@ struct ContentView: View {
     
     var body: some View {
         ZStack(alignment: .top) {
-            Color.clear.edgesIgnoringSafeArea(.all)
+            Color.clear
             
             islandContainer
-                .padding(.top, 0)
         }
-        .frame(minWidth: 400, minHeight: 300, alignment: .top)
+        .edgesIgnoringSafeArea(.all)
+        .frame(width: 400, height: 400, alignment: .top) // Pencereyle aynı yükseklik (400), kesilme olmaz.
     }
     
     private var isIslandInvisible: Bool {
