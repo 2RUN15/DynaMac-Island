@@ -57,27 +57,43 @@ struct ContentView: View {
             if viewModel.isExpanded {
                 if case .battery(let level, let isCharging) = viewModel.activeTransientEvent {
                     expandedBatteryView(level: level, isCharging: isCharging)
-                        .transition(.opacity.combined(with: .scale(scale: 0.9, anchor: .top)))
+                        // Akıcı native geçiş, içeriğin sınırlarından taşmasını veya bozulmasını engellemek için sadece opaklık yeterli 
+                        // veya merkezden scale kullanılabilir. (Asymmetric scale kenar kanaması yapabilir)
+                        .transition(.scale(scale: 0.95, anchor: .top).combined(with: .opacity))
                 } else if case .audioDevice(let name) = viewModel.activeTransientEvent {
                     expandedDeviceView(name: name)
-                        .transition(.opacity.combined(with: .scale(scale: 0.9, anchor: .top)))
+                        .transition(.scale(scale: 0.95, anchor: .top).combined(with: .opacity))
                 } else if viewModel.hasActiveMusic && !viewModel.isIdleTimeout {
                     expandedMediaView
-                        .transition(.opacity.combined(with: .scale(scale: 0.9, anchor: .top)))
+                        .transition(.scale(scale: 0.95, anchor: .top).combined(with: .opacity))
                 } else {
                     expandedCalendarView
-                        .transition(.opacity.combined(with: .scale(scale: 0.9, anchor: .top)))
+                        .transition(.scale(scale: 0.95, anchor: .top).combined(with: .opacity))
                 }
             } else {
                 idleIslandView
+                    // İki görünüm geçişinde de aynı animasyonu koru ki cross-soluklaşma temiz olsun
+                    .transition(.scale(scale: 0.95, anchor: .top).combined(with: .opacity))
             }
         }
-        .background(isIslandInvisible ? Color.black.opacity(0.001) : Color.black)
+        // Gölge sorunu ve şeffaf piksel hattı (macOS ClipShape bug'ı) olmaması için
+        // background, maske ve gölgeyi TEK bir katmanda tutuyoruz
+        .background(
+            RoundedRectangle(cornerRadius: viewModel.isExpanded ? 44 : 9, style: .continuous)
+                .fill(Color(NSColor.black)) // Tam opak siyah
+                .shadow(color: isIslandInvisible ? .clear : .black.opacity(0.4), radius: 15, x: 0, y: 10)
+        )
+        // Sonra child öğelerin ana çerçeveyi taşmasını önlemek için clipShape yapıyoruz.
+        // Ama clipShape çevresindeki Anti-Aliasing (tırtık/şeffaflık) bug'ını örtmek için üstüne net siyah dış hat (stroke) çiziyoruz.
         .clipShape(RoundedRectangle(cornerRadius: viewModel.isExpanded ? 44 : 9, style: .continuous))
-        .shadow(color: isIslandInvisible ? .clear : .black.opacity(0.4), radius: 15, x: 0, y: 10)
+        .overlay(
+            RoundedRectangle(cornerRadius: viewModel.isExpanded ? 44 : 9, style: .continuous)
+                .stroke(Color(NSColor.black), lineWidth: 1.0)
+        )
         .onHover { hovering in
             if viewModel.activeTransientEvent == nil {
-                withAnimation(.spring(response: 0.45, dampingFraction: 0.7, blendDuration: 0)) {
+                // Daha tepkisel ve yumuşak (bouncy) Apple stili animasyon
+                withAnimation(.interactiveSpring(response: 0.4, dampingFraction: 0.6, blendDuration: 0)) {
                     viewModel.isHovered = hovering
                 }
                 if !hovering {
@@ -85,8 +101,8 @@ struct ContentView: View {
                 }
             }
         }
-        .animation(.spring(response: 0.45, dampingFraction: 0.7, blendDuration: 0), value: viewModel.isExpanded)
-        .animation(.spring(response: 0.45, dampingFraction: 0.7, blendDuration: 0), value: viewModel.hasActiveMusic)
+        .animation(.interactiveSpring(response: 0.4, dampingFraction: 0.6, blendDuration: 0), value: viewModel.isExpanded)
+        .animation(.interactiveSpring(response: 0.45, dampingFraction: 0.7, blendDuration: 0), value: viewModel.hasActiveMusic)
         .animation(.spring(response: 0.3), value: showVolumeSlider)
 
     }
@@ -448,6 +464,8 @@ struct ContentView: View {
         .frame(width: 360)
     }
     
+    // Idle state: Fiziksel notch üzerinde beliren kapalı hal.
+    // Menü bar (hardwareNotchHeight) boyutuyla birebir eşitlendi
     private var idleIslandView: some View {
         HStack(spacing: 0) {
             if viewModel.hasActiveMusic {
@@ -465,7 +483,7 @@ struct ContentView: View {
                             .foregroundColor(viewModel.mediaState.dominantColor)
                     }
                 }
-                .padding(.leading, 12)
+                .padding(.leading, 10) 
                 .blur(radius: viewModel.isIdleTimeout ? 12 : 0)
                 .opacity(viewModel.isIdleTimeout ? 0 : 1)
                 
@@ -473,19 +491,19 @@ struct ContentView: View {
                 
                 if #available(macOS 12.0, *) {
                     AudioVisualizerView(isPlaying: viewModel.mediaState.isPlaying, color: viewModel.mediaState.dominantColor)
-                        .padding(.trailing, 12)
+                        .padding(.trailing, 10) 
                         .blur(radius: viewModel.isIdleTimeout ? 12 : 0)
                         .opacity(viewModel.isIdleTimeout ? 0 : 1)
                 } else {
-                    Spacer().frame(width: 20).padding(.trailing, 12)
+                    Spacer().frame(width: 20).padding(.trailing, 10)
                 }
             } else {
                 Spacer() 
             }
         }
         .frame(
-            width: viewModel.hasActiveMusic && !viewModel.isIdleTimeout ? viewModel.hardwareNotchWidth + 72 : viewModel.hardwareNotchWidth, 
-            height: viewModel.hardwareNotchHeight
+            width: viewModel.hasActiveMusic && !viewModel.isIdleTimeout ? (viewModel.hardwareNotchWidth + 60) : viewModel.hardwareNotchWidth, 
+            height: viewModel.hardwareNotchHeight // Tamamen fiziksel alanla eşit 
         )
         .animation(.easeInOut(duration: 1.2), value: viewModel.isIdleTimeout)
         .animation(.easeInOut(duration: 0.6), value: viewModel.hasActiveMusic) 
