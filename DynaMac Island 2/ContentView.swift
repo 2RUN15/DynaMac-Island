@@ -172,7 +172,7 @@ struct ContentView: View {
                 }
                 .buttonStyle(.plain)
             }
-            .padding(.top, 24)
+            .padding(.top, 32)
             
             // WEEK STRIP (7 DAYS)
             HStack(spacing: 4) {
