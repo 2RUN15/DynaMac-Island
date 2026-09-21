@@ -158,7 +158,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         panel.isMovable = false
         
         panel.hasShadow = false
-        panel.sharingType = .none
+        let hideFromRecorder = UserDefaults.standard.object(forKey: "hideFromScreenRecorder") as? Bool ?? true
+        panel.sharingType = hideFromRecorder ? .none : .readOnly
         panel.animationBehavior = .none
         panel.level = NSWindow.Level(rawValue: Int(CGWindowLevelForKey(.mainMenuWindow)) + 3)
         

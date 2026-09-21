@@ -3,6 +3,7 @@ import SwiftUI
 struct SettingsView: View {
     @AppStorage("showCalendarWhenIdle") private var showCalendarWhenIdle = true
     @AppStorage("autoFadeTimeout") private var autoFadeTimeout = 7.0
+    @AppStorage("hideFromScreenRecorder") private var hideFromScreenRecorder = true
     
     // Tab seçim state'i
     @State private var selectedTab = 0
@@ -11,7 +12,8 @@ struct SettingsView: View {
         TabView(selection: $selectedTab) {
             GeneralSettingsView(
                 showCalendarWhenIdle: $showCalendarWhenIdle,
-                autoFadeTimeout: $autoFadeTimeout
+                autoFadeTimeout: $autoFadeTimeout,
+                hideFromScreenRecorder: $hideFromScreenRecorder
             )
             .tabItem {
                 Label("Genel", systemImage: "gearshape")
@@ -38,6 +40,7 @@ struct SettingsView: View {
 struct GeneralSettingsView: View {
     @Binding var showCalendarWhenIdle: Bool
     @Binding var autoFadeTimeout: Double
+    @Binding var hideFromScreenRecorder: Bool
     
     var body: some View {
         Form {
@@ -53,6 +56,23 @@ struct GeneralSettingsView: View {
                 .padding(.vertical, 8)
             }
             
+            Section {
+                VStack(alignment: .leading, spacing: 6) {
+                    Toggle("Ekran Kaydedicilerde Gizle", isOn: $hideFromScreenRecorder)
+                        .font(.headline)
+                        .onChange(of: hideFromScreenRecorder) { _, newValue in
+                            if let appDelegate = NSApplication.shared.delegate as? AppDelegate {
+                                appDelegate.panel?.sharingType = newValue ? .none : .readOnly
+                            }
+                        }
+                    Text("Etkinleştirildiğinde, DynaMac Island ekran kayıtlarında veya yayın programlarında (OBS, QuickTime vb.) görünmez hale gelir.")
+                        .font(.caption)
+                        .foregroundColor(.gray)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+                .padding(.vertical, 8)
+            }
+
             Section {
                 VStack(alignment: .leading, spacing: 6) {
                     HStack {
