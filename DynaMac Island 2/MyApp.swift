@@ -1,4 +1,6 @@
 import SwiftUI
+import AppKit
+import ApplicationServices
 
 // MARK: - CGS Private API Bağlamaları
 @_silgen_name("CGSMainConnectionID")
@@ -71,17 +73,14 @@ class OverlaySpaceManager {
     }
     
     func setupOverlaySpace(for window: NSWindow) {
-        // Özel bir overlay Space oluştur (0x1 = Overlay flag, eksik olan 3. parametre nil olarak geçildi)
         let spaceID = CGSSpaceCreate(connection, 0x1, nil)
         self.overlaySpaceID = spaceID
         
         let spaceIDs = [NSNumber(value: spaceID)] as CFArray
         let windowIDs = [NSNumber(value: window.windowNumber)] as CFArray
         
-        // Pencereyi yeni özel Space'e ekle
         CGSAddWindowsToSpaces(connection, windowIDs, spaceIDs)
         
-        // Masaüstü Space'inden çıkar ki Spaces arası animasyona katılmasın
         if let screen = window.screen, let uuid = screen.uuid {
             let currentSpaceID = CGSManagedDisplayGetCurrentSpace(connection, uuid as CFString)
             if currentSpaceID > 0 {
@@ -90,10 +89,8 @@ class OverlaySpaceManager {
             }
         }
         
-        // Space'in görünürlüğünü aç
         CGSShowSpaces(connection, spaceIDs)
         
-        // Animasyon ve diğer pencerelerin (örn. menubar) üstünde olmasını sağlama amaçlı katman
         let level = Int32(CGWindowLevelForKey(.mainMenuWindow) + 3)
         CGSSpaceSetAbsoluteLevel(connection, spaceID, level)
     }
@@ -107,7 +104,6 @@ class OverlaySpaceManager {
     }
 }
 
-// MARK: - NSScreen UUID Eklentisi
 extension NSScreen {
     var uuid: String? {
         guard let deviceID = deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber else {
@@ -124,11 +120,24 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var panel: OverlayPanel!
     var settingsWindow: NSWindow?
     var overlaySpaceManager: OverlaySpaceManager?
+    
+    private func checkAccessibilityPermissions() {
+        let options: NSDictionary = [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true]
+        let accessEnabled = AXIsProcessTrustedWithOptions(options)
+        
+        if !accessEnabled {
+            print("Erişilebilirlik (Accessibility) izni bekleniyor...")
+            // İzin verilene kadar 3 saniyede bir kontrol edip uyarıcı olabilir, 
+            // ama kAXTrustedCheckOptionPrompt zaten macOS'un kendi penceresini çıkartır.
+        }
+    }
 
     func applicationDidFinishLaunching(_ notification: Notification) {
+        // İzin kontrolü (Ekrandaki ses ve parlaklık tuşlarını yakalayabilmek için)
+        checkAccessibilityPermissions()
+        
         let contentView = ContentView()
         
-        // Takvim görünümünün sığması için 400x400 geniş/yüksek pencere
         let panelWidth: CGFloat = 400
         let panelHeight: CGFloat = 400
         
@@ -144,7 +153,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         panel.isFloatingPanel = true
         panel.isOpaque = false
         panel.titleVisibility = .hidden
-        panel.titlebarAppearsTransparent = true // for hudWindow
+        panel.titlebarAppearsTransparent = true 
         panel.backgroundColor = .clear
         panel.isMovable = false
         
@@ -165,10 +174,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         hostingView.layer?.backgroundColor = NSColor.clear.cgColor
         panel.contentView = hostingView
         
-        // SafeArea / Notch dahil ana ekranı al
         if let screen = NSScreen.main ?? NSScreen.screens.first {
             let screenRect = screen.frame
-            // Herhangi bir çoklu ekran veya safe area ofsetini hesaba kat
             let x = screenRect.origin.x + (screenRect.width - panelWidth) / 2
             let y = screenRect.origin.y + (screenRect.height - panelHeight)
             panel.setFrameOrigin(NSPoint(x: x, y: y))
@@ -176,7 +183,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         
         panel.orderFrontRegardless()
         
-        // Özel Space'e taşıma
         overlaySpaceManager = OverlaySpaceManager()
         overlaySpaceManager?.setupOverlaySpace(for: panel)
         
@@ -184,7 +190,6 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     }
     
     func applicationWillTerminate(_ notification: Notification) {
-        // Space temizleniyor
         overlaySpaceManager = nil
     }
     
