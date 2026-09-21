@@ -36,6 +36,7 @@ struct AudioVisualizerView: View {
 
 struct ContentView: View {
     @StateObject private var viewModel = IslandViewModel()
+    @ObservedObject var lang = LanguageManager.shared
     @State private var showVolumeSlider = false
     
     var body: some View {
@@ -156,7 +157,7 @@ struct ContentView: View {
                         .foregroundColor(.red)
                         .textCase(.uppercase)
                     
-                    Text("Bugün")
+                    Text(L("today"))
                         .font(.system(size: 18, weight: .bold, design: .rounded))
                         .foregroundColor(.white)
                 }
@@ -467,7 +468,7 @@ struct ContentView: View {
             }
             .frame(height: viewModel.hardwareNotchHeight)
             
-            Text("\(name) Bağlandı")
+            Text(L("device_connected", name))
                 .font(.system(size: 12, weight: .semibold, design: .rounded))
                 .foregroundColor(.white)
                 .padding(.bottom, 12)

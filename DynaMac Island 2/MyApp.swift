@@ -34,17 +34,18 @@ func CGSManagedDisplayGetCurrentSpace(_ connection: Int32, _ displayId: CFString
 @main
 struct MyApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
+    @ObservedObject var lang = LanguageManager.shared
 
     var body: some Scene {
         MenuBarExtra("DynaMac Island", image: "MenuBarIcon") {
-            Button("Ayarlar...") {
+            Button(L("menu_settings")) {
                 appDelegate.openSettings()
             }
             .keyboardShortcut(",", modifiers: .command)
             
             Divider()
             
-            Button("DynaMac'ten Çık") {
+            Button(L("menu_quit")) {
                 NSApplication.shared.terminate(nil)
             }
             .keyboardShortcut("q", modifiers: .command)
@@ -213,7 +214,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         
         window.center()
         window.setFrameAutosaveName("Settings")
-        window.title = "DynaMac Island Ayarları"
+        window.title = "DynaMac Island" + " - " + L("menu_settings")
         window.contentView = hostingController.view
         window.isReleasedWhenClosed = false
         

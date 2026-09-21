@@ -1,6 +1,7 @@
 import SwiftUI
 
 struct SettingsView: View {
+    @ObservedObject var lang = LanguageManager.shared
     @AppStorage("showCalendarWhenIdle") private var showCalendarWhenIdle = true
     @AppStorage("autoFadeTimeout") private var autoFadeTimeout = 7.0
     @AppStorage("hideFromScreenRecorder") private var hideFromScreenRecorder = true
@@ -16,19 +17,19 @@ struct SettingsView: View {
                 hideFromScreenRecorder: $hideFromScreenRecorder
             )
             .tabItem {
-                Label("Genel", systemImage: "gearshape")
+                Label(L("tab_general"), systemImage: "gearshape")
             }
             .tag(0)
             
             AppearanceSettingsView()
             .tabItem {
-                Label("Görünüm", systemImage: "paintbrush")
+                Label(L("tab_appearance"), systemImage: "paintbrush")
             }
             .tag(1)
             
             AboutSettingsView()
             .tabItem {
-                Label("Hakkında", systemImage: "info.circle")
+                Label(L("tab_about"), systemImage: "info.circle")
             }
             .tag(2)
         }
@@ -38,6 +39,7 @@ struct SettingsView: View {
 }
 
 struct GeneralSettingsView: View {
+    @ObservedObject var lang = LanguageManager.shared
     @Binding var showCalendarWhenIdle: Bool
     @Binding var autoFadeTimeout: Double
     @Binding var hideFromScreenRecorder: Bool
@@ -46,9 +48,22 @@ struct GeneralSettingsView: View {
         Form {
             Section {
                 VStack(alignment: .leading, spacing: 6) {
-                    Toggle("Boştayken Takvimi Göster (Hover)", isOn: $showCalendarWhenIdle)
+                    Picker(L("language"), selection: $lang.selectedLanguage) {
+                        ForEach(AppLanguage.allCases, id: \.self) { lng in
+                            Text(lng.displayName).tag(lng)
+                        }
+                    }
+                    .font(.headline)
+                    .onChange(of: lang.selectedLanguage) { _, _ in }
+                }
+                .padding(.vertical, 8)
+            }
+
+            Section {
+                VStack(alignment: .leading, spacing: 6) {
+                    Toggle(L("calendar_idle_title"), isOn: $showCalendarWhenIdle)
                         .font(.headline)
-                    Text("Müzik çalmıyorken ve fare ile adanın üzerine geldiğinizde yaklaşan etkinliklerinizi gösterir.")
+                    Text(L("calendar_idle_desc"))
                         .font(.caption)
                         .foregroundColor(.gray)
                         .fixedSize(horizontal: false, vertical: true)
@@ -58,14 +73,14 @@ struct GeneralSettingsView: View {
             
             Section {
                 VStack(alignment: .leading, spacing: 6) {
-                    Toggle("Ekran Kaydedicilerde Gizle", isOn: $hideFromScreenRecorder)
+                    Toggle(L("hide_record_title"), isOn: $hideFromScreenRecorder)
                         .font(.headline)
                         .onChange(of: hideFromScreenRecorder) { _, newValue in
                             if let appDelegate = NSApplication.shared.delegate as? AppDelegate {
                                 appDelegate.panel?.sharingType = newValue ? .none : .readOnly
                             }
                         }
-                    Text("Etkinleştirildiğinde, DynaMac Island ekran kayıtlarında veya yayın programlarında (OBS, QuickTime vb.) görünmez hale gelir.")
+                    Text(L("hide_record_desc"))
                         .font(.caption)
                         .foregroundColor(.gray)
                         .fixedSize(horizontal: false, vertical: true)
@@ -76,14 +91,14 @@ struct GeneralSettingsView: View {
             Section {
                 VStack(alignment: .leading, spacing: 6) {
                     HStack {
-                        Text("Otomatik Gizlenme Süresi")
+                        Text(L("auto_hide_title"))
                             .font(.headline)
                         Spacer()
-                        Text("\(Int(autoFadeTimeout)) saniye")
+                        Text("\(Int(autoFadeTimeout)) \(L("seconds"))")
                             .foregroundColor(.secondary)
                     }
                     Slider(value: $autoFadeTimeout, in: 3...15, step: 1)
-                    Text("Müzik duraklatıldığında dışarıdaki ikonların kaybolup çentiğin tamamen kapanması için geçecek süre.")
+                    Text(L("auto_hide_desc"))
                         .font(.caption)
                         .foregroundColor(.gray)
                         .fixedSize(horizontal: false, vertical: true)
@@ -96,6 +111,7 @@ struct GeneralSettingsView: View {
 }
 
 struct AppearanceSettingsView: View {
+    @ObservedObject var lang = LanguageManager.shared
     // İleride eklenebilecek ayarlar için AppStorage buraya eklenebilir
     @AppStorage("maskOriginalNotch") private var maskOriginalNotch = false
     @AppStorage("showMusicVisualizer") private var showMusicVisualizer = true
@@ -104,10 +120,10 @@ struct AppearanceSettingsView: View {
         Form {
             Section {
                 VStack(alignment: .leading, spacing: 6) {
-                    Toggle("Orijinal Apple Çentiğini Maskele", isOn: $maskOriginalNotch)
+                    Toggle(L("mask_notch_title"), isOn: $maskOriginalNotch)
                         .font(.headline)
                         .disabled(true) // Şimdilik devre dışı
-                    Text("Gerçek kamerası olmayan ekranlarda donanımsal bir çentik simülasyonu yaratır. (Yakında eklenecek)")
+                    Text(L("mask_notch_desc"))
                         .font(.caption)
                         .foregroundColor(.gray)
                         .fixedSize(horizontal: false, vertical: true)
@@ -117,10 +133,10 @@ struct AppearanceSettingsView: View {
             
             Section {
                 VStack(alignment: .leading, spacing: 6) {
-                    Toggle("Müzik Çalarken Ses Dalgası Göster", isOn: $showMusicVisualizer)
+                    Toggle(L("visualizer_title"), isOn: $showMusicVisualizer)
                         .font(.headline)
                         .disabled(true) // İleride ContentView ile bağlanacak
-                    Text("Müzik dinlerken albüm rengine uyumlu animasyonlu ses dalgasını (visualizer) gösterir.")
+                    Text(L("visualizer_desc"))
                         .font(.caption)
                         .foregroundColor(.gray)
                         .fixedSize(horizontal: false, vertical: true)
@@ -133,6 +149,7 @@ struct AppearanceSettingsView: View {
 }
 
 struct AboutSettingsView: View {
+    @ObservedObject var lang = LanguageManager.shared
     var body: some View {
         VStack(spacing: 20) {
             Spacer()
@@ -147,12 +164,12 @@ struct AboutSettingsView: View {
             VStack(spacing: 6) {
                 Text("DynaMac Island")
                     .font(.system(size: 24, weight: .bold))
-                Text("Sürüm 1.0 (Beta)")
+                Text(L("version", "1.0 (Beta)"))
                     .font(.subheadline)
                     .foregroundColor(.secondary)
             }
             
-            Text("Mac ekranınız için geliştirilmiş akıllı ve dinamik ada deneyimi. Apple'ın Dynamic Island tasarımını cihazınıza getirir.")
+            Text(L("app_desc"))
                 .font(.body)
                 .multilineTextAlignment(.center)
                 .foregroundColor(.primary.opacity(0.8))
@@ -165,8 +182,8 @@ struct AboutSettingsView: View {
             
             HStack {
                 Spacer()
-                Button("Tamam") {
-                    NSApplication.shared.windows.first { $0.title == "DynaMac Island Ayarları" }?.close()
+                Button(L("ok")) {
+                    NSApplication.shared.windows.first { $0.title == "DynaMac Island" + " - " + L("menu_settings") }?.close()
                 }
                 .keyboardShortcut(.defaultAction)
                 .controlSize(.large)
