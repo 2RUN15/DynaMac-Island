@@ -62,3 +62,8 @@ fastlane/test_output
 .ai_scripts/
 *.py
 *.sh
+
+# Build artifacts and DMG
+*.dmg
+build/
+dmg_content/
