@@ -36,7 +36,7 @@ class IslandViewModel: ObservableObject {
     }
     
     var isExpanded: Bool {
-        // Eğer fare ile üzerine gelinmişse VEYA geçici bir bildirim (örn: pil) gösteriliyorsa adayı genişlet
+        // Eğer fare ile üzerine gelinmişse VEYA geçici bir bildirim (örn: pil, ses) gösteriliyorsa adayı genişlet
         return isHovered || activeTransientEvent != nil
     }
     
@@ -81,6 +81,14 @@ class IslandViewModel: ObservableObject {
             }
             .store(in: &cancellables)
             
+        // Ses seviyesi (donanım düğmeniyle vb) değiştirilirse bildirimi aç
+        self.audioService.volumeChangePublisher
+            .receive(on: RunLoop.main)
+            .sink { [weak self] volume in
+                self?.triggerVolumeEvent(level: volume)
+            }
+            .store(in: &cancellables)
+            
         // Pil durumu değişimini dinle ve bildirim ekranı göster
         self.batteryService.powerChangePublisher
             .receive(on: RunLoop.main)
@@ -90,7 +98,28 @@ class IslandViewModel: ObservableObject {
             .store(in: &cancellables)
     }
     
+    func triggerVolumeEvent(level: Double) {
+        if isHovered { return } // Kullanıcı adanın üzerindeyse rahatsız etme, müziği/takvimi açık tut
+        
+        withAnimation(.spring(response: 0.45, dampingFraction: 0.7, blendDuration: 0)) {
+            self.activeTransientEvent = .volume(level: level)
+        }
+        
+        transientEventTimer?.invalidate()
+        transientEventTimer = Timer.scheduledTimer(withTimeInterval: 2.5, repeats: false) { [weak self] _ in
+            DispatchQueue.main.async {
+                withAnimation(.spring(response: 0.45, dampingFraction: 0.7, blendDuration: 0)) {
+                    // Sadece hala volume gösteriliyorsa kapat (kullanıcı hover yapmışsa aktive edilmiş event değişir)
+                    if case .volume = self?.activeTransientEvent {
+                        self?.activeTransientEvent = nil
+                    }
+                }
+            }
+        }
+    }
+    
     func triggerDeviceEvent(name: String) {
+        if isHovered { return }
         withAnimation(.spring(response: 0.45, dampingFraction: 0.7, blendDuration: 0)) {
             self.activeTransientEvent = .audioDevice(name: name)
         }
@@ -99,13 +128,16 @@ class IslandViewModel: ObservableObject {
         transientEventTimer = Timer.scheduledTimer(withTimeInterval: 3.5, repeats: false) { [weak self] _ in
             DispatchQueue.main.async {
                 withAnimation(.spring(response: 0.45, dampingFraction: 0.7, blendDuration: 0)) {
-                    self?.activeTransientEvent = nil
+                    if case .audioDevice = self?.activeTransientEvent {
+                        self?.activeTransientEvent = nil
+                    }
                 }
             }
         }
     }
     
     private func triggerBatteryEvent(state: BatteryState) {
+        if isHovered { return }
         withAnimation(.spring(response: 0.45, dampingFraction: 0.7, blendDuration: 0)) {
             self.activeTransientEvent = .battery(level: state.level, isCharging: state.isPlugged)
         }
@@ -114,7 +146,9 @@ class IslandViewModel: ObservableObject {
         transientEventTimer = Timer.scheduledTimer(withTimeInterval: 4.5, repeats: false) { [weak self] _ in
             DispatchQueue.main.async {
                 withAnimation(.spring(response: 0.45, dampingFraction: 0.7, blendDuration: 0)) {
-                    self?.activeTransientEvent = nil
+                    if case .battery = self?.activeTransientEvent {
+                        self?.activeTransientEvent = nil
+                    }
                 }
             }
         }

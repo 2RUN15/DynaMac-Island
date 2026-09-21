@@ -45,7 +45,7 @@ struct ContentView: View {
             islandContainer
         }
         .edgesIgnoringSafeArea(.all)
-        .frame(width: 400, height: 400, alignment: .top) // Pencereyle aynı yükseklik (400), kesilme olmaz.
+        .frame(width: 400, height: 400, alignment: .top) 
     }
     
     private var isIslandInvisible: Bool {
@@ -53,58 +53,53 @@ struct ContentView: View {
     }
     
     private var islandContainer: some View {
-        VStack(spacing: 0) {
+        ZStack(alignment: .top) {
             if viewModel.isExpanded {
                 if case .battery(let level, let isCharging) = viewModel.activeTransientEvent {
                     expandedBatteryView(level: level, isCharging: isCharging)
-                        // Akıcı native geçiş, içeriğin sınırlarından taşmasını veya bozulmasını engellemek için sadece opaklık yeterli 
-                        // veya merkezden scale kullanılabilir. (Asymmetric scale kenar kanaması yapabilir)
-                        .transition(.scale(scale: 0.95, anchor: .top).combined(with: .opacity))
+                        .transition(.opacity)
                 } else if case .audioDevice(let name) = viewModel.activeTransientEvent {
                     expandedDeviceView(name: name)
-                        .transition(.scale(scale: 0.95, anchor: .top).combined(with: .opacity))
+                        .transition(.opacity)
+                } else if case .volume(let level) = viewModel.activeTransientEvent {
+                    expandedVolumeView(level: level)
+                        .transition(.opacity)
                 } else if viewModel.hasActiveMusic && !viewModel.isIdleTimeout {
                     expandedMediaView
-                        .transition(.scale(scale: 0.95, anchor: .top).combined(with: .opacity))
+                        .transition(.opacity)
                 } else {
                     expandedCalendarView
-                        .transition(.scale(scale: 0.95, anchor: .top).combined(with: .opacity))
+                        .transition(.opacity)
                 }
             } else {
                 idleIslandView
-                    // İki görünüm geçişinde de aynı animasyonu koru ki cross-soluklaşma temiz olsun
-                    .transition(.scale(scale: 0.95, anchor: .top).combined(with: .opacity))
+                    .transition(.opacity)
             }
         }
-        // Gölge sorunu ve şeffaf piksel hattı (macOS ClipShape bug'ı) olmaması için
-        // background, maske ve gölgeyi TEK bir katmanda tutuyoruz
+        .frame(minWidth: viewModel.hardwareNotchWidth, minHeight: viewModel.hardwareNotchHeight, alignment: .top)
         .background(
-            RoundedRectangle(cornerRadius: viewModel.isExpanded ? 44 : 9, style: .continuous)
-                .fill(Color(NSColor.black)) // Tam opak siyah
+            RoundedRectangle(cornerRadius: viewModel.isExpanded ? 28 : 9, style: .continuous)
+                .fill(Color(NSColor.black)) 
                 .shadow(color: isIslandInvisible ? .clear : .black.opacity(0.4), radius: 15, x: 0, y: 10)
         )
-        // Sonra child öğelerin ana çerçeveyi taşmasını önlemek için clipShape yapıyoruz.
-        // Ama clipShape çevresindeki Anti-Aliasing (tırtık/şeffaflık) bug'ını örtmek için üstüne net siyah dış hat (stroke) çiziyoruz.
-        .clipShape(RoundedRectangle(cornerRadius: viewModel.isExpanded ? 44 : 9, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: viewModel.isExpanded ? 28 : 9, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: viewModel.isExpanded ? 44 : 9, style: .continuous)
+            RoundedRectangle(cornerRadius: viewModel.isExpanded ? 28 : 9, style: .continuous)
                 .stroke(Color(NSColor.black), lineWidth: 1.0)
         )
         .onHover { hovering in
             if viewModel.activeTransientEvent == nil {
-                // Daha tepkisel ve yumuşak (bouncy) Apple stili animasyon
-                withAnimation(.interactiveSpring(response: 0.4, dampingFraction: 0.6, blendDuration: 0)) {
+                withAnimation(.interactiveSpring(response: 0.35, dampingFraction: hovering ? 0.65 : 1.0, blendDuration: 0)) {
                     viewModel.isHovered = hovering
                 }
                 if !hovering {
-                    withAnimation { showVolumeSlider = false } // adadan çıkınca volume gizlensin
+                    withAnimation { showVolumeSlider = false } 
                 }
             }
         }
-        .animation(.interactiveSpring(response: 0.4, dampingFraction: 0.6, blendDuration: 0), value: viewModel.isExpanded)
-        .animation(.interactiveSpring(response: 0.45, dampingFraction: 0.7, blendDuration: 0), value: viewModel.hasActiveMusic)
+        .animation(.interactiveSpring(response: 0.35, dampingFraction: viewModel.isExpanded ? 0.65 : 1.0, blendDuration: 0), value: viewModel.isExpanded)
+        .animation(.interactiveSpring(response: 0.40, dampingFraction: viewModel.hasActiveMusic ? 0.7 : 1.0, blendDuration: 0), value: viewModel.hasActiveMusic)
         .animation(.spring(response: 0.3), value: showVolumeSlider)
-
     }
     
     private var songKey: String {
@@ -140,17 +135,17 @@ struct ContentView: View {
     }
     
     private var expandedCalendarView: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: 12) {
             // HEADER BAR
             HStack(alignment: .center) {
                 VStack(alignment: .leading, spacing: 1) {
                     Text(Date(), formatter: Self.monthFormatter)
-                        .font(.system(size: 11, weight: .bold))
+                        .font(.system(size: 10, weight: .bold))
                         .foregroundColor(.red)
                         .textCase(.uppercase)
                     
                     Text("Bugün")
-                        .font(.system(size: 20, weight: .bold, design: .rounded))
+                        .font(.system(size: 18, weight: .bold, design: .rounded))
                         .foregroundColor(.white)
                 }
                 
@@ -165,48 +160,49 @@ struct ContentView: View {
                     }
                 }) {
                     Image(systemName: "plus.circle.fill")
-                        .font(.system(size: 22))
+                        .font(.system(size: 20))
                         .foregroundColor(.white.opacity(0.85))
                         .shadow(color: .black.opacity(0.3), radius: 3, x: 0, y: 2)
                 }
                 .buttonStyle(.plain)
             }
+            .padding(.top, 24)
             
             // WEEK STRIP (7 DAYS)
-            HStack(spacing: 6) {
+            HStack(spacing: 4) {
                 ForEach(getWeekDays(), id: \.id) { day in
-                    VStack(spacing: 4) {
+                    VStack(spacing: 3) {
                         Text(day.dayName.prefix(3).uppercased())
                             .font(.system(size: 9, weight: .bold))
                             .foregroundColor(day.isToday ? .red : .gray.opacity(0.8))
                         
                         Text(day.dayNum)
-                            .font(.system(size: 13, weight: day.isToday ? .bold : .medium))
+                            .font(.system(size: 12, weight: day.isToday ? .bold : .medium))
                             .foregroundColor(day.isToday ? .white : .white.opacity(0.8))
-                            .frame(width: 30, height: 30)
+                            .frame(width: 26, height: 26) 
                             .background(day.isToday ? Color.red : Color.white.opacity(0.06))
                             .clipShape(Circle())
                     }
                     .frame(maxWidth: .infinity)
                 }
             }
-            .padding(.vertical, 4)
+            .padding(.vertical, 2)
             
             // EVENTS LIST
             VStack(spacing: 8) {
                 if viewModel.calendarEvents.isEmpty {
                     VStack(spacing: 8) {
                         Image(systemName: "calendar.badge.clock")
-                            .font(.system(size: 26))
+                            .font(.system(size: 24))
                             .foregroundColor(.white.opacity(0.15))
                         Text("Günün geri kalanında etkinlik yok.\nRahatına bak. ☕️")
                             .multilineTextAlignment(.center)
                             .lineLimit(2)
                             .foregroundColor(.gray)
-                            .font(.system(size: 12, weight: .medium))
+                            .font(.system(size: 11, weight: .medium))
                     }
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 16)
+                    .padding(.vertical, 12)
                 } else {
                     let eventsToShow = Array(viewModel.calendarEvents.prefix(2))
                     ForEach(eventsToShow, id: \.id) { event in
@@ -214,16 +210,16 @@ struct ContentView: View {
                             RoundedRectangle(cornerRadius: 3)
                                 .fill(event.color)
                                 .frame(width: 4)
-                                .frame(height: 34)
+                                .frame(height: 32)
                             
                             VStack(alignment: .leading, spacing: 2) {
                                 Text(event.title)
-                                    .font(.system(size: 13, weight: .semibold, design: .default))
+                                    .font(.system(size: 12, weight: .semibold, design: .default))
                                     .foregroundColor(.white)
                                     .lineLimit(1)
                                 
                                 Text(event.timeString)
-                                    .font(.system(size: 11, weight: .medium, design: .rounded))
+                                    .font(.system(size: 10, weight: .medium, design: .rounded))
                                     .foregroundColor(.gray)
                             }
                             
@@ -237,45 +233,45 @@ struct ContentView: View {
                 }
             }
         }
-        .padding(.horizontal, 22)
-        .padding(.vertical, 22)
-        .frame(width: 360)
+        .padding(.horizontal, 18)
+        .padding(.bottom, 18)
+        .frame(width: 320)
     }
     
     private var expandedMediaView: some View {
-        VStack(spacing: 16) {
-            HStack(alignment: .center, spacing: 16) {
+        VStack(spacing: 14) {
+            HStack(alignment: .center, spacing: 14) {
                 if let nsImage = viewModel.mediaState.artworkImage {
                     Image(nsImage: nsImage)
                         .resizable()
                         .id(songKey + "-ex")
                         .scaledToFill()
-                        .frame(width: 60, height: 60)
-                        .cornerRadius(14)
+                        .frame(width: 48, height: 48) 
+                        .cornerRadius(12)
                         .shadow(color: .black.opacity(0.3), radius: 6, x: 0, y: 3)
                 } else {
                     Image(systemName: viewModel.mediaState.coverIcon)
                         .resizable()
                         .id(songKey + "-sfex")
                         .scaledToFit()
-                        .padding(14)
-                        .frame(width: 60, height: 60)
+                        .padding(12)
+                        .frame(width: 48, height: 48) 
                         .background(
                             LinearGradient(gradient: Gradient(colors: [viewModel.mediaState.dominantColor, .indigo]), startPoint: .topLeading, endPoint: .bottomTrailing)
                         )
                         .foregroundColor(.white)
-                        .cornerRadius(14)
+                        .cornerRadius(12)
                         .shadow(color: viewModel.mediaState.dominantColor.opacity(0.4), radius: 8, x: 0, y: 4)
                 }
                 
-                VStack(alignment: .leading, spacing: 4) {
+                VStack(alignment: .leading, spacing: 2) {
                     Text(viewModel.mediaState.song)
-                        .font(.system(size: 16, weight: .bold, design: .default))
+                        .font(.system(size: 14, weight: .bold, design: .default)) 
                         .foregroundColor(.white)
                         .lineLimit(1)
                     
                     Text(viewModel.mediaState.artist)
-                        .font(.system(size: 14, weight: .medium, design: .default))
+                        .font(.system(size: 12, weight: .medium, design: .default)) 
                         .foregroundColor(.gray)
                         .lineLimit(1)
                 }
@@ -284,15 +280,15 @@ struct ContentView: View {
                 
                 if #available(macOS 12.0, *) {
                     AudioVisualizerView(isPlaying: viewModel.mediaState.isPlaying, color: viewModel.mediaState.dominantColor)
-                        .frame(height: 24)
+                        .frame(height: 18) 
                 }
             }
-            .padding(.horizontal, 22)
-            .padding(.top, 22)
+            .padding(.horizontal, 18)
+            .padding(.top, 24) 
             
             HStack(spacing: 12) {
                 Text(viewModel.formatTime(viewModel.editingTime))
-                    .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                    .font(.system(size: 10, weight: .semibold, design: .monospaced))
                     .foregroundColor(.white.opacity(0.7))
                 
                 Slider(value: $viewModel.editingTime, in: 0...viewModel.mediaState.duration, onEditingChanged: { editing in
@@ -305,19 +301,18 @@ struct ContentView: View {
                 .frame(height: 12)
                 
                 Text("-" + viewModel.formatTime(viewModel.mediaState.duration - viewModel.editingTime))
-                    .font(.system(size: 11, weight: .semibold, design: .monospaced))
+                    .font(.system(size: 10, weight: .semibold, design: .monospaced))
                     .foregroundColor(.white.opacity(0.7))
             }
-            .padding(.horizontal, 22)
+            .padding(.horizontal, 18)
             
-            VStack(spacing: 16) {
-                HStack(spacing: 28) {
-                    // Mix / Shuffle Button
+            VStack(spacing: 14) {
+                HStack(spacing: 24) {
                     Button(action: {
                         withAnimation { viewModel.toggleShuffle() }
                     }) {
                         Image(systemName: "shuffle")
-                            .font(.system(size: 18, weight: viewModel.mediaState.isShuffleEnabled ? .bold : .regular))
+                            .font(.system(size: 16, weight: viewModel.mediaState.isShuffleEnabled ? .bold : .regular))
                             .foregroundColor(viewModel.mediaState.isShuffleEnabled ? viewModel.mediaState.dominantColor : .white.opacity(0.6))
                     }
                     
@@ -325,7 +320,7 @@ struct ContentView: View {
                         withAnimation { viewModel.previousTrack() }
                     }) {
                         Image(systemName: "backward.fill")
-                            .font(.system(size: 22))
+                            .font(.system(size: 20))
                     }
                     
                     Button(action: {
@@ -334,24 +329,23 @@ struct ContentView: View {
                         }
                     }) {
                         Image(systemName: viewModel.mediaState.isPlaying ? "pause.fill" : "play.fill")
-                            .font(.system(size: 30))
+                            .font(.system(size: 28))
                     }
                     
                     Button(action: {
                         withAnimation { viewModel.nextTrack() }
                     }) {
                         Image(systemName: "forward.fill")
-                            .font(.system(size: 22))
+                            .font(.system(size: 20))
                     }
                     
-                    // Device Source Button
                     Button(action: {
                         withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) { 
                             showVolumeSlider.toggle() 
                         }
                     }) {
                         Image(systemName: deviceIcon(for: viewModel.audioService.deviceName))
-                            .font(.system(size: 18, weight: showVolumeSlider ? .bold : .regular))
+                            .font(.system(size: 16, weight: showVolumeSlider ? .bold : .regular))
                             .foregroundColor(showVolumeSlider ? viewModel.mediaState.dominantColor : .white.opacity(0.6))
                     }
                 }
@@ -361,7 +355,7 @@ struct ContentView: View {
                 if showVolumeSlider {
                     HStack(spacing: 12) {
                         Image(systemName: "speaker.fill")
-                            .font(.system(size: 12))
+                            .font(.system(size: 11))
                             .foregroundColor(.white.opacity(0.6))
                         
                         Slider(value: Binding(get: { viewModel.audioService.volume }, set: { val in
@@ -371,18 +365,18 @@ struct ContentView: View {
                         .tint(Color(red: 250/255, green: 36/255, blue: 60/255))
                         
                         Image(systemName: "speaker.wave.3.fill")
-                            .font(.system(size: 12))
+                            .font(.system(size: 11))
                             .foregroundColor(.white.opacity(0.6))
                     }
-                    .padding(.horizontal, 32)
+                    .padding(.horizontal, 28)
                     .frame(height: 12)
                     .transition(.move(edge: .top).combined(with: .opacity))
                 }
             }
-            .padding(.bottom, showVolumeSlider ? 22 : 22)
-            .padding(.top, 4)
+            .padding(.bottom, showVolumeSlider ? 18 : 18)
+            .padding(.top, 2)
         }
-        .frame(width: 360)
+        .frame(width: 320)
     }
     
     private func deviceIcon(for deviceName: String) -> String {
@@ -395,77 +389,127 @@ struct ContentView: View {
     }
     
     private func expandedBatteryView(level: Int, isCharging: Bool) -> some View {
-        HStack(spacing: 16) {
+        HStack(spacing: 14) {
             ZStack {
                 Circle()
                     .fill(isCharging ? Color.green.opacity(0.2) : Color.orange.opacity(0.2))
-                    .frame(width: 48, height: 48)
+                    .frame(width: 40, height: 40)
                 
                 Image(systemName: isCharging ? "bolt.fill" : "battery.50")
-                    .font(.system(size: 24, weight: .bold))
+                    .font(.system(size: 20, weight: .bold)) 
                     .foregroundColor(isCharging ? .green : .orange)
             }
             
             VStack(alignment: .leading, spacing: 4) {
                 Text(isCharging ? "Şarj Ediliyor" : "Pilde Çalışıyor")
-                    .font(.system(size: 16, weight: .bold))
+                    .font(.system(size: 15, weight: .bold))
                     .foregroundColor(.white)
                 
                 Text(isCharging ? "Güç bağlantısı kuruldu" : "Kablodan çıkarıldı")
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.system(size: 12, weight: .medium))
                     .foregroundColor(.gray)
             }
             
             Spacer()
             
             Text("%\(level)")
-                .font(.system(size: 28, weight: .bold, design: .rounded))
+                .font(.system(size: 24, weight: .bold, design: .rounded))
                 .foregroundColor(isCharging ? .green : .white)
         }
-        .padding(.horizontal, 24)
-        .padding(.top, 30) // Şarj animasyonu kameradan kurtulsun diye çok az aşağı alındı (Eski 22 -> 30)
-        .padding(.bottom, 16)
-        .frame(width: 360)
+        .padding(.horizontal, 20)
+        .padding(.top, 26) 
+        .padding(.bottom, 12)
+        .frame(width: 300) 
     }
     
     private func expandedDeviceView(name: String) -> some View {
         let isMac = name.lowercased().contains("macbook") || name.lowercased().contains("hoparlör") || name.lowercased().contains("speakers")
-        return HStack(spacing: 16) {
+        return HStack(spacing: 14) {
             ZStack {
                 Circle()
                     .fill(isMac ? Color.gray.opacity(0.2) : Color.blue.opacity(0.2))
-                    .frame(width: 48, height: 48)
+                    .frame(width: 40, height: 40)
                 
                 Image(systemName: deviceIcon(for: name))
-                    .font(.system(size: 24, weight: .bold))
+                    .font(.system(size: 20, weight: .bold))
                     .foregroundColor(isMac ? .white : .blue)
             }
             
             VStack(alignment: .leading, spacing: 4) {
                 Text(name)
-                    .font(.system(size: 16, weight: .bold))
+                    .font(.system(size: 15, weight: .bold))
                     .foregroundColor(.white)
                     .lineLimit(1)
                 
                 Text(isMac ? "Ses Çıkışı Değişti" : "Bağlandı")
-                    .font(.system(size: 13, weight: .medium))
+                    .font(.system(size: 12, weight: .medium))
                     .foregroundColor(.gray)
             }
             
             Spacer()
             
             Image(systemName: "waveform")
-                .font(.system(size: 22))
+                .font(.system(size: 20))
                 .foregroundColor(isMac ? .gray : .blue)
         }
-        .padding(.horizontal, 24)
-        .padding(.top, 30)
-        .padding(.bottom, 16)
-        .frame(width: 360)
+        .padding(.horizontal, 20)
+        .padding(.top, 26)
+        .padding(.bottom, 12)
+        .frame(width: 300)
     }
     
-    // Idle state: Fiziksel notch üzerinde beliren kapalı hal.
-    // Menü bar (hardwareNotchHeight) boyutuyla birebir eşitlendi
+    // Doğrudan iOS stilinde sol ve sağ adayı saran ince, daraltılmış ve kompakt ses tasarımı.
+    private func expandedVolumeView(level: Double) -> some View {
+        let isMuted = level <= 0
+        let iconName = isMuted ? "speaker.slash.fill" : (level < 33 ? "speaker.wave.1.fill" : (level < 66 ? "speaker.wave.2.fill" : "speaker.wave.3.fill"))
+        
+        let targetWidth: CGFloat = 280
+        // Notch çevresindeki sağ/sol kulakçık mesafesini buluyoruz. Ortalama notch genişliği ~180 ise, köşelere tahmini 50'şer piksel kalır.
+        let sideWidth: CGFloat = (targetWidth - viewModel.hardwareNotchWidth) / 2
+        
+        return VStack(spacing: 2) {
+            // Müzikteki gibi en tepede (sol sağ yanaklarda) sadece ikon ve yüzdelik var
+            HStack(spacing: 0) {
+                // Sol Yanak
+                Image(systemName: iconName)
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundColor(isMuted ? .gray : .white)
+                    .frame(width: sideWidth, alignment: .center)
+                    .animation(nil, value: level) // İkon zıplamasın, dalgalar eklensin yeter
+                
+                Spacer() // Fiziksel kamera boşluğu
+                
+                // Sağ Yanak
+                Text("%\(Int(level))")
+                    .font(.system(size: 12, weight: .bold, design: .rounded))
+                    .foregroundColor(.white)
+                    .frame(width: sideWidth, alignment: .center)
+                    .animation(.none, value: level)
+            }
+            .frame(height: viewModel.hardwareNotchHeight)
+            // HStack sıfır y noktasından başlar ve fiziksel kamerayı sağ ve sol yanlardan kusursuz sarar.
+            
+            // Alt Bara Taşan Düzgün İnce Ses Çizgisi
+            GeometryReader { geo in
+                ZStack(alignment: .leading) {
+                    Capsule()
+                        .fill(Color.white.opacity(0.12))
+                        .frame(height: 4)
+                    
+                    Capsule()
+                        .fill(Color.white)
+                        .frame(width: max(0, geo.size.width * CGFloat(level / 100.0)), height: 4)
+                        .animation(.interactiveSpring(response: 0.35, dampingFraction: 0.75), value: level)
+                }
+                .frame(maxHeight: .infinity)
+            }
+            .frame(height: 4)
+            .padding(.horizontal, 28)
+            .padding(.bottom, 12)
+        }
+        .frame(width: targetWidth) // Daraltılmış panel (280)
+    }
+
     private var idleIslandView: some View {
         HStack(spacing: 0) {
             if viewModel.hasActiveMusic {
@@ -475,11 +519,11 @@ struct ContentView: View {
                             .resizable()
                             .id(songKey + "-id")
                             .scaledToFill()
-                            .frame(width: 20, height: 20)
+                            .frame(width: 18, height: 18) 
                             .cornerRadius(5)
                     } else {
                         Image(systemName: "music.note")
-                            .font(.system(size: 14, weight: .bold))
+                            .font(.system(size: 13, weight: .bold))
                             .foregroundColor(viewModel.mediaState.dominantColor)
                     }
                 }
@@ -503,7 +547,7 @@ struct ContentView: View {
         }
         .frame(
             width: viewModel.hasActiveMusic && !viewModel.isIdleTimeout ? (viewModel.hardwareNotchWidth + 60) : viewModel.hardwareNotchWidth, 
-            height: viewModel.hardwareNotchHeight // Tamamen fiziksel alanla eşit 
+            height: viewModel.hardwareNotchHeight 
         )
         .animation(.easeInOut(duration: 1.2), value: viewModel.isIdleTimeout)
         .animation(.easeInOut(duration: 0.6), value: viewModel.hasActiveMusic) 
