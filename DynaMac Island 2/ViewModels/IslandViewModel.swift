@@ -76,12 +76,12 @@ class IslandViewModel: ObservableObject {
             
         self.audioService.deviceChangePublisher
             .receive(on: RunLoop.main)
-            .sink { [weak self] name in
-                self?.triggerDeviceEvent(name: name)
+            .sink { [weak self] payload in
+                self?.triggerDeviceEvent(name: payload.0, battery: payload.1)
             }
             .store(in: &cancellables)
             
-        // Ses seviyesi (donanım düğmeniyle vb) değiştirilirse bildirimi aç
+        // Ses seviyesi (donanım düğmesiyle vb) değiştirilirse bildirimi aç
         self.audioService.volumeChangePublisher
             .receive(on: RunLoop.main)
             .sink { [weak self] volume in
@@ -118,10 +118,28 @@ class IslandViewModel: ObservableObject {
         }
     }
     
-    func triggerDeviceEvent(name: String) {
+    func triggerBrightnessEvent(level: Double) {
         if isHovered { return }
         withAnimation(.spring(response: 0.45, dampingFraction: 0.7, blendDuration: 0)) {
-            self.activeTransientEvent = .audioDevice(name: name)
+            self.activeTransientEvent = .brightness(level: level)
+        }
+        
+        transientEventTimer?.invalidate()
+        transientEventTimer = Timer.scheduledTimer(withTimeInterval: 2.5, repeats: false) { [weak self] _ in
+            DispatchQueue.main.async {
+                withAnimation(.spring(response: 0.45, dampingFraction: 0.7, blendDuration: 0)) {
+                    if case .brightness = self?.activeTransientEvent {
+                        self?.activeTransientEvent = nil
+                    }
+                }
+            }
+        }
+    }
+    
+    func triggerDeviceEvent(name: String, battery: Int?) {
+        if isHovered { return }
+        withAnimation(.spring(response: 0.45, dampingFraction: 0.7, blendDuration: 0)) {
+            self.activeTransientEvent = .audioDevice(name: name, battery: battery)
         }
         
         transientEventTimer?.invalidate()

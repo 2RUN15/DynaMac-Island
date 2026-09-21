@@ -46,6 +46,9 @@ struct ContentView: View {
         }
         .edgesIgnoringSafeArea(.all)
         .frame(width: 400, height: 400, alignment: .top) 
+        .onAppear {
+            MediaKeyMonitor.shared.start(audioService: viewModel.audioService, viewModel: viewModel)
+        }
     }
     
     private var isIslandInvisible: Bool {
@@ -58,11 +61,14 @@ struct ContentView: View {
                 if case .battery(let level, let isCharging) = viewModel.activeTransientEvent {
                     expandedBatteryView(level: level, isCharging: isCharging)
                         .transition(.opacity)
-                } else if case .audioDevice(let name) = viewModel.activeTransientEvent {
-                    expandedDeviceView(name: name)
+                } else if case .audioDevice(let name, let batteryLevel) = viewModel.activeTransientEvent {
+                    expandedDeviceView(name: name, battery: batteryLevel)
                         .transition(.opacity)
                 } else if case .volume(let level) = viewModel.activeTransientEvent {
                     expandedVolumeView(level: level)
+                        .transition(.opacity)
+                } else if case .brightness(let level) = viewModel.activeTransientEvent {
+                    expandedBrightnessView(level: level)
                         .transition(.opacity)
                 } else if viewModel.hasActiveMusic && !viewModel.isIdleTimeout {
                     expandedMediaView
@@ -389,107 +395,105 @@ struct ContentView: View {
     }
     
     private func expandedBatteryView(level: Int, isCharging: Bool) -> some View {
-        HStack(spacing: 14) {
-            ZStack {
-                Circle()
-                    .fill(isCharging ? Color.green.opacity(0.2) : Color.orange.opacity(0.2))
-                    .frame(width: 40, height: 40)
-                
-                Image(systemName: isCharging ? "bolt.fill" : "battery.50")
-                    .font(.system(size: 20, weight: .bold)) 
-                    .foregroundColor(isCharging ? .green : .orange)
-            }
-            
-            VStack(alignment: .leading, spacing: 4) {
-                Text(isCharging ? "Şarj Ediliyor" : "Pilde Çalışıyor")
-                    .font(.system(size: 15, weight: .bold))
-                    .foregroundColor(.white)
-                
-                Text(isCharging ? "Güç bağlantısı kuruldu" : "Kablodan çıkarıldı")
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundColor(.gray)
-            }
-            
-            Spacer()
-            
-            Text("%\(level)")
-                .font(.system(size: 24, weight: .bold, design: .rounded))
-                .foregroundColor(isCharging ? .green : .white)
-        }
-        .padding(.horizontal, 20)
-        .padding(.top, 26) 
-        .padding(.bottom, 12)
-        .frame(width: 300) 
-    }
-    
-    private func expandedDeviceView(name: String) -> some View {
-        let isMac = name.lowercased().contains("macbook") || name.lowercased().contains("hoparlör") || name.lowercased().contains("speakers")
-        return HStack(spacing: 14) {
-            ZStack {
-                Circle()
-                    .fill(isMac ? Color.gray.opacity(0.2) : Color.blue.opacity(0.2))
-                    .frame(width: 40, height: 40)
-                
-                Image(systemName: deviceIcon(for: name))
-                    .font(.system(size: 20, weight: .bold))
-                    .foregroundColor(isMac ? .white : .blue)
-            }
-            
-            VStack(alignment: .leading, spacing: 4) {
-                Text(name)
-                    .font(.system(size: 15, weight: .bold))
-                    .foregroundColor(.white)
-                    .lineLimit(1)
-                
-                Text(isMac ? "Ses Çıkışı Değişti" : "Bağlandı")
-                    .font(.system(size: 12, weight: .medium))
-                    .foregroundColor(.gray)
-            }
-            
-            Spacer()
-            
-            Image(systemName: "waveform")
-                .font(.system(size: 20))
-                .foregroundColor(isMac ? .gray : .blue)
-        }
-        .padding(.horizontal, 20)
-        .padding(.top, 26)
-        .padding(.bottom, 12)
-        .frame(width: 300)
-    }
-    
-    // Doğrudan iOS stilinde sol ve sağ adayı saran ince, daraltılmış ve kompakt ses tasarımı.
-    private func expandedVolumeView(level: Double) -> some View {
-        let isMuted = level <= 0
-        let iconName = isMuted ? "speaker.slash.fill" : (level < 33 ? "speaker.wave.1.fill" : (level < 66 ? "speaker.wave.2.fill" : "speaker.wave.3.fill"))
+        let iconName = isCharging ? "bolt.fill" : (level <= 20 ? "battery.25" : (level <= 50 ? "battery.50" : (level <= 75 ? "battery.75" : "battery.100")))
+        let color = isCharging ? Color.green : (level <= 20 ? Color(red: 255/255, green: 59/255, blue: 48/255) : Color.white)
+        let message = isCharging ? "Şarj Ediliyor" : "Pilde Çalışıyor"
         
         let targetWidth: CGFloat = 280
-        // Notch çevresindeki sağ/sol kulakçık mesafesini buluyoruz. Ortalama notch genişliği ~180 ise, köşelere tahmini 50'şer piksel kalır.
+        let sideWidth: CGFloat = (targetWidth - viewModel.hardwareNotchWidth) / 2
+        
+        return VStack(spacing: 6) {
+            HStack(spacing: 0) {
+                Image(systemName: iconName)
+                    .font(.system(size: 16, weight: .bold))
+                    .foregroundColor(color)
+                    .frame(width: sideWidth, alignment: .center)
+                
+                Spacer()
+                
+                Text("%\(level)")
+                    .font(.system(size: 13, weight: .bold, design: .rounded))
+                    .foregroundColor(color)
+                    .frame(width: sideWidth, alignment: .center)
+            }
+            .frame(height: viewModel.hardwareNotchHeight)
+            
+            Text(message)
+                .font(.system(size: 12, weight: .semibold, design: .rounded))
+                .foregroundColor(.white)
+                .padding(.bottom, 12)
+        }
+        .frame(width: targetWidth)
+    }
+    
+    private func expandedDeviceView(name: String, battery: Int?) -> some View {
+        let isMac = name.lowercased().contains("macbook") || name.lowercased().contains("hoparlör") || name.lowercased().contains("speakers")
+        let iconName = deviceIcon(for: name)
+        let color = isMac ? Color.gray : Color.white
+        
+        let targetWidth: CGFloat = 280
+        let sideWidth: CGFloat = (targetWidth - viewModel.hardwareNotchWidth) / 2
+        
+        return VStack(spacing: 6) {
+            HStack(spacing: 0) {
+                Image(systemName: iconName)
+                    .font(.system(size: 16, weight: .bold))
+                    .foregroundColor(color)
+                    .frame(width: sideWidth, alignment: .center)
+                
+                Spacer()
+                
+                if let bat = battery {
+                    HStack(spacing: 4) {
+                        Text("%\(bat)")
+                            .font(.system(size: 12, weight: .bold, design: .rounded))
+                        Image(systemName: "battery.100")
+                            .font(.system(size: 11))
+                    }
+                    .foregroundColor(.green)
+                    .frame(width: sideWidth, alignment: .center)
+                } else {
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 14, weight: .bold))
+                        .foregroundColor(Color.green)
+                        .frame(width: sideWidth, alignment: .center)
+                }
+            }
+            .frame(height: viewModel.hardwareNotchHeight)
+            
+            Text("\(name) Bağlandı")
+                .font(.system(size: 12, weight: .semibold, design: .rounded))
+                .foregroundColor(.white)
+                .padding(.bottom, 12)
+        }
+        .frame(width: targetWidth)
+    }
+    
+    private func expandedVolumeView(level: Double) -> some View {
+        let iconName = level <= 0 ? "speaker.slash.fill" : (level < 33 ? "speaker.wave.1.fill" : (level < 66 ? "speaker.wave.2.fill" : "speaker.wave.3.fill"))
+        let iconColor = level <= 0 ? Color.gray : Color.white
+        
+        let targetWidth: CGFloat = 280
         let sideWidth: CGFloat = (targetWidth - viewModel.hardwareNotchWidth) / 2
         
         return VStack(spacing: 2) {
-            // Müzikteki gibi en tepede (sol sağ yanaklarda) sadece ikon ve yüzdelik var
             HStack(spacing: 0) {
-                // Sol Yanak
                 Image(systemName: iconName)
                     .font(.system(size: 14, weight: .bold))
-                    .foregroundColor(isMuted ? .gray : .white)
+                    .foregroundColor(iconColor)
                     .frame(width: sideWidth, alignment: .center)
-                    .animation(nil, value: level) // İkon zıplamasın, dalgalar eklensin yeter
+                    .animation(.easeInOut(duration: 0.2), value: level <= 0) 
                 
-                Spacer() // Fiziksel kamera boşluğu
+                Spacer() 
                 
-                // Sağ Yanak
-                Text("%\(Int(level))")
+                Text("%\(Int(round(level)))")
                     .font(.system(size: 12, weight: .bold, design: .rounded))
-                    .foregroundColor(.white)
+                    .foregroundColor(iconColor)
                     .frame(width: sideWidth, alignment: .center)
                     .animation(.none, value: level)
             }
             .frame(height: viewModel.hardwareNotchHeight)
-            // HStack sıfır y noktasından başlar ve fiziksel kamerayı sağ ve sol yanlardan kusursuz sarar.
             
-            // Alt Bara Taşan Düzgün İnce Ses Çizgisi
             GeometryReader { geo in
                 ZStack(alignment: .leading) {
                     Capsule()
@@ -507,7 +511,51 @@ struct ContentView: View {
             .padding(.horizontal, 28)
             .padding(.bottom, 12)
         }
-        .frame(width: targetWidth) // Daraltılmış panel (280)
+        .frame(width: targetWidth) 
+    }
+    
+    private func expandedBrightnessView(level: Double) -> some View {
+        let iconName = "sun.max.fill"
+        
+        let targetWidth: CGFloat = 280
+        let sideWidth: CGFloat = (targetWidth - viewModel.hardwareNotchWidth) / 2
+        
+        return VStack(spacing: 2) {
+            HStack(spacing: 0) {
+                Image(systemName: iconName)
+                    .font(.system(size: 14, weight: .bold))
+                    .foregroundColor(.white)
+                    .frame(width: sideWidth, alignment: .center)
+                    .animation(nil, value: level) 
+                
+                Spacer() 
+                
+                Text("%\(Int(round(level)))")
+                    .font(.system(size: 12, weight: .bold, design: .rounded))
+                    .foregroundColor(.white)
+                    .frame(width: sideWidth, alignment: .center)
+                    .animation(.none, value: level)
+            }
+            .frame(height: viewModel.hardwareNotchHeight)
+            
+            GeometryReader { geo in
+                ZStack(alignment: .leading) {
+                    Capsule()
+                        .fill(Color.white.opacity(0.12))
+                        .frame(height: 4)
+                    
+                    Capsule()
+                        .fill(Color.white)
+                        .frame(width: max(0, geo.size.width * CGFloat(level / 100.0)), height: 4)
+                        .animation(.interactiveSpring(response: 0.35, dampingFraction: 0.75), value: level)
+                }
+                .frame(maxHeight: .infinity)
+            }
+            .frame(height: 4)
+            .padding(.horizontal, 28)
+            .padding(.bottom, 12)
+        }
+        .frame(width: targetWidth)
     }
 
     private var idleIslandView: some View {

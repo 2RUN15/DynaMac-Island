@@ -8,7 +8,7 @@ class AudioDeviceService: ObservableObject {
     @Published var deviceName: String = "MacBook"
     @Published var volume: Double = 50.0
     @Published var isInitialLoad: Bool = true
-    let deviceChangePublisher = PassthroughSubject<String, Never>()
+    let deviceChangePublisher = PassthroughSubject<(String, Int?), Never>()
     let volumeChangePublisher = PassthroughSubject<Double, Never>()
     
     private var firstFetchCompleted = false
@@ -16,6 +16,7 @@ class AudioDeviceService: ObservableObject {
     var isInternalVolumeChange = false
     private var internalVolumeResetTimer: Timer?
     private var lastAppleScriptFetch: Date = Date.distantPast
+    private var lastDeviceChangeTime: Date = Date.distantPast
 
     init() {
         startPolling()
@@ -31,32 +32,86 @@ class AudioDeviceService: ObservableObject {
         fetchAudioState()
     }
     
+    // Bluetooth şarjını asenkron olarak arka planda çekmek için yardımcı metod
+    nonisolated private func getBluetoothBattery() -> Int? {
+        let task = Process()
+        task.executableURL = URL(fileURLWithPath: "/usr/sbin/system_profiler")
+        task.arguments = ["SPBluetoothDataType"]
+        let pipe = Pipe()
+        task.standardOutput = pipe
+        
+        do {
+            try task.run()
+            let data = pipe.fileHandleForReading.readDataToEndOfFile()
+            if let output = String(data: data, encoding: .utf8) {
+                let lines = output.components(separatedBy: .newlines)
+                var batL: Int?
+                var batR: Int?
+                var batMain: Int?
+                
+                for line in lines {
+                    if line.contains("Left Battery Level:") {
+                        let str = line.replacingOccurrences(of: "Left Battery Level:", with: "").trimmingCharacters(in: .whitespaces).replacingOccurrences(of: "%", with: "")
+                        batL = Int(str)
+                    } else if line.contains("Right Battery Level:") {
+                        let str = line.replacingOccurrences(of: "Right Battery Level:", with: "").trimmingCharacters(in: .whitespaces).replacingOccurrences(of: "%", with: "")
+                        batR = Int(str)
+                    } else if line.contains("Battery Level:") && !line.contains("Case") {
+                        let str = line.replacingOccurrences(of: "Battery Level:", with: "").trimmingCharacters(in: .whitespaces).replacingOccurrences(of: "%", with: "")
+                        if batMain == nil { batMain = Int(str) }
+                    }
+                }
+                
+                if let l = batL, let r = batR {
+                    return (l + r) / 2
+                }
+                if let m = batMain {
+                    return m
+                }
+            }
+        } catch {
+            return nil
+        }
+        return nil
+    }
+    
     private func fetchAudioState() {
         Task {
-            // Hızlı native C-API okumaları direkt main thread üzerinde (µs sürer)
             let deviceID = self.getDefaultOutputDeviceID()
             let name = self.getDeviceName(deviceID: deviceID)
             var vol = self.getNativeSystemVolume(deviceID: deviceID)
             
-            // Eğer CoreAudio desteklemiyorsa (vol < 0) AppleScript ile arka planda çek
             if vol < 0 {
                 let now = Date()
                 if now.timeIntervalSince(self.lastAppleScriptFetch) >= 1.0 {
-                    // AppleScript'i arka plana (detached) at, MainActor'ı kitlemesin!
                     vol = await Task.detached { self.getSystemVolumeAppleScript() }.value
                     self.lastAppleScriptFetch = now
                 } else {
-                    return // Saniye dolmadan tekrar AppleScript sorma (CPU'yu koru)
+                    return
                 }
             }
             
-            if self.deviceName != "MacBook" && self.deviceName != name && !self.isInitialLoad {
-                self.deviceChangePublisher.send(name)
+            let deviceChanged = (self.deviceName != name)
+            
+            if deviceChanged && !self.isInitialLoad {
+                self.lastDeviceChangeTime = Date()
+                
+                if name.lowercased().contains("macbook") || name.lowercased().contains("hoparlör") || name.lowercased().contains("speakers") {
+                    // Cihaz çıkarılınca sessizce kapat. (Kullanıcı "disconnect olunca mac'in sesi gözükmesin" dedi)
+                } else {
+                    // Eğer bağlanan yeni bir AirPods / Kulaklık ise şarjını çek ve yolla
+                    let batLevel = await Task.detached { self.getBluetoothBattery() }.value
+                    self.deviceChangePublisher.send((name, batLevel))
+                }
             }
             
-            if !self.isInitialLoad && abs(self.volume - vol) > 0.5 { 
-                if !self.isInternalVolumeChange {
-                    self.volumeChangePublisher.send(vol)
+            let timeSinceDeviceChange = Date().timeIntervalSince(self.lastDeviceChangeTime)
+            
+            if !self.isInitialLoad && !deviceChanged && timeSinceDeviceChange > 1.5 {
+                if abs(self.volume - vol) > 0.5 { 
+                    if !self.isInternalVolumeChange {
+                        self.volumeChangePublisher.send(vol)
+                    }
                 }
             }
             
@@ -118,7 +173,6 @@ class AudioDeviceService: ObservableObject {
             mElement: kAudioObjectPropertyElementMain
         )
         
-        // Log spam ("HALC_ShellObject... call to the proxy failed") oluşmaması için önce property'nin desteklendiğine emin ol
         if AudioObjectHasProperty(deviceID, &propertyAddress) {
             let status = AudioObjectGetPropertyData(deviceID, &propertyAddress, 0, nil, &propertySize, &volume)
             if status == noErr { return Double(volume * 100.0) }
