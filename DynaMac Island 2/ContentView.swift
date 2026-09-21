@@ -399,7 +399,7 @@ struct ContentView: View {
         let color = isCharging ? Color.green : (level <= 20 ? Color(red: 255/255, green: 59/255, blue: 48/255) : Color.white)
         let message = isCharging ? "Şarj Ediliyor" : "Pilde Çalışıyor"
         
-        let targetWidth: CGFloat = 280
+        let targetWidth: CGFloat = 320
         let sideWidth: CGFloat = (targetWidth - viewModel.hardwareNotchWidth) / 2
         
         return VStack(spacing: 6) {
@@ -431,7 +431,7 @@ struct ContentView: View {
         let iconName = deviceIcon(for: name)
         let color = isMac ? Color.gray : Color.white
         
-        let targetWidth: CGFloat = 280
+        let targetWidth: CGFloat = 320
         let sideWidth: CGFloat = (targetWidth - viewModel.hardwareNotchWidth) / 2
         
         return VStack(spacing: 6) {
@@ -473,7 +473,7 @@ struct ContentView: View {
         let iconName = level <= 0 ? "speaker.slash.fill" : (level < 33 ? "speaker.wave.1.fill" : (level < 66 ? "speaker.wave.2.fill" : "speaker.wave.3.fill"))
         let iconColor = level <= 0 ? Color.gray : Color.white
         
-        let targetWidth: CGFloat = 280
+        let targetWidth: CGFloat = 320
         let sideWidth: CGFloat = (targetWidth - viewModel.hardwareNotchWidth) / 2
         
         return VStack(spacing: 2) {
@@ -517,7 +517,7 @@ struct ContentView: View {
     private func expandedBrightnessView(level: Double) -> some View {
         let iconName = "sun.max.fill"
         
-        let targetWidth: CGFloat = 280
+        let targetWidth: CGFloat = 320
         let sideWidth: CGFloat = (targetWidth - viewModel.hardwareNotchWidth) / 2
         
         return VStack(spacing: 2) {

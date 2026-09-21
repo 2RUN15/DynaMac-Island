@@ -2,7 +2,7 @@ import Foundation
 
 struct ScriptHelper {
     /// Executes a given AppleScript and returns its standard output as an optional string.
-    static func run(_ scriptSource: String) -> String? {
+    nonisolated static func run(_ scriptSource: String) -> String? {
         let task = Process()
         task.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
         task.arguments = ["-e", scriptSource]
@@ -26,7 +26,7 @@ struct ScriptHelper {
     }
     
     /// Hides native macOS Notification Center banners via Accessibility UI scripting.
-    static func dismissSystemNotifications() {
+    nonisolated static func dismissSystemNotifications() {
         // macOS Notification Center (process "NotificationCenter") 
         let script = """
         tell application "System Events"
