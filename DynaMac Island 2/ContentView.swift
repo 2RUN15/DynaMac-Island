@@ -55,6 +55,12 @@ struct ContentView: View {
         return !viewModel.isExpanded && (!viewModel.hasActiveMusic || viewModel.isIdleTimeout)
     }
     
+        private var dynamicCornerRadius: CGFloat {
+        if !viewModel.isExpanded { return 9 }
+        if viewModel.activeTransientEvent != nil { return 14 }
+        return 28
+    }
+
     private var islandContainer: some View {
         ZStack(alignment: .top) {
             if viewModel.isExpanded {
@@ -84,13 +90,13 @@ struct ContentView: View {
         }
         .frame(minWidth: viewModel.hardwareNotchWidth, minHeight: viewModel.hardwareNotchHeight, alignment: .top)
         .background(
-            RoundedRectangle(cornerRadius: viewModel.isExpanded ? 28 : 9, style: .continuous)
+            RoundedRectangle(cornerRadius: dynamicCornerRadius, style: .continuous)
                 .fill(Color(NSColor.black)) 
                 .shadow(color: isIslandInvisible ? .clear : .black.opacity(0.4), radius: 15, x: 0, y: 10)
         )
-        .clipShape(RoundedRectangle(cornerRadius: viewModel.isExpanded ? 28 : 9, style: .continuous))
+        .clipShape(RoundedRectangle(cornerRadius: dynamicCornerRadius, style: .continuous))
         .overlay(
-            RoundedRectangle(cornerRadius: viewModel.isExpanded ? 28 : 9, style: .continuous)
+            RoundedRectangle(cornerRadius: dynamicCornerRadius, style: .continuous)
                 .stroke(Color(NSColor.black), lineWidth: 1.0)
         )
         .onHover { hovering in
@@ -399,7 +405,7 @@ struct ContentView: View {
         let color = isCharging ? Color.green : (level <= 20 ? Color(red: 255/255, green: 59/255, blue: 48/255) : Color.white)
         let message = isCharging ? "Şarj Ediliyor" : "Pilde Çalışıyor"
         
-        let targetWidth: CGFloat = 320
+        let targetWidth: CGFloat = 260
         let sideWidth: CGFloat = (targetWidth - viewModel.hardwareNotchWidth) / 2
         
         return VStack(spacing: 6) {
@@ -431,7 +437,7 @@ struct ContentView: View {
         let iconName = deviceIcon(for: name)
         let color = isMac ? Color.gray : Color.white
         
-        let targetWidth: CGFloat = 320
+        let targetWidth: CGFloat = 260
         let sideWidth: CGFloat = (targetWidth - viewModel.hardwareNotchWidth) / 2
         
         return VStack(spacing: 6) {
@@ -473,7 +479,7 @@ struct ContentView: View {
         let iconName = level <= 0 ? "speaker.slash.fill" : (level < 33 ? "speaker.wave.1.fill" : (level < 66 ? "speaker.wave.2.fill" : "speaker.wave.3.fill"))
         let iconColor = level <= 0 ? Color.gray : Color.white
         
-        let targetWidth: CGFloat = 320
+        let targetWidth: CGFloat = 260
         let sideWidth: CGFloat = (targetWidth - viewModel.hardwareNotchWidth) / 2
         
         return VStack(spacing: 2) {
@@ -517,7 +523,7 @@ struct ContentView: View {
     private func expandedBrightnessView(level: Double) -> some View {
         let iconName = "sun.max.fill"
         
-        let targetWidth: CGFloat = 320
+        let targetWidth: CGFloat = 260
         let sideWidth: CGFloat = (targetWidth - viewModel.hardwareNotchWidth) / 2
         
         return VStack(spacing: 2) {
