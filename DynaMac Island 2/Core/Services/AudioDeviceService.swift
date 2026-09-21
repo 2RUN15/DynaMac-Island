@@ -32,7 +32,6 @@ class AudioDeviceService: ObservableObject {
         fetchAudioState()
     }
     
-    // Bluetooth şarjını asenkron olarak arka planda çekmek için yardımcı metod
     nonisolated private func getBluetoothBattery() -> Int? {
         let task = Process()
         task.executableURL = URL(fileURLWithPath: "/usr/sbin/system_profiler")
@@ -97,9 +96,11 @@ class AudioDeviceService: ObservableObject {
                 self.lastDeviceChangeTime = Date()
                 
                 if name.lowercased().contains("macbook") || name.lowercased().contains("hoparlör") || name.lowercased().contains("speakers") {
-                    // Cihaz çıkarılınca sessizce kapat. (Kullanıcı "disconnect olunca mac'in sesi gözükmesin" dedi)
+                    // Sessiz tutulacak
                 } else {
-                    // Eğer bağlanan yeni bir AirPods / Kulaklık ise şarjını çek ve yolla
+                    // AirPods bağlandığında UI Scripting ile Apple'ın kendi OSD bannerını acımasızca ekrandan yok eden scripti çalıştır
+                    ScriptHelper.dismissSystemNotifications()
+                    
                     let batLevel = await Task.detached { self.getBluetoothBattery() }.value
                     self.deviceChangePublisher.send((name, batLevel))
                 }
