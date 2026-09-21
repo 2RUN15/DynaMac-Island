@@ -34,7 +34,7 @@ struct MyApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
 
     var body: some Scene {
-        MenuBarExtra("DynaMac Island", systemImage: "macwindow.badge.plus") {
+        MenuBarExtra("DynaMac Island", image: "MenuBarIcon") {
             Button("Ayarlar...") {
                 appDelegate.openSettings()
             }
