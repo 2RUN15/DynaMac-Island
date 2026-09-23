@@ -3,25 +3,20 @@ import Foundation
 struct ScriptHelper {
     /// Executes a given AppleScript and returns its standard output as an optional string.
     nonisolated static func run(_ scriptSource: String) -> String? {
-        let task = Process()
-        task.executableURL = URL(fileURLWithPath: "/usr/bin/osascript")
-        task.arguments = ["-e", scriptSource]
-        
-        let pipe = Pipe()
-        task.standardOutput = pipe
-        
-        do {
-            try task.run()
-            task.waitUntilExit()
-            
-            let data = pipe.fileHandleForReading.readDataToEndOfFile()
-            if let output = String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines), !output.isEmpty {
-                return output
+        var error: NSDictionary? = nil
+        if let scriptObject = NSAppleScript(source: scriptSource) {
+            let eventResult = scriptObject.executeAndReturnError(&error)
+            if error == nil {
+                if let stringValue = eventResult.stringValue {
+                    let output = stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
+                    if !output.isEmpty { return output }
+                } else if eventResult.int32Value != 0 {
+                    return String(eventResult.int32Value)
+                }
+            } else {
+                print("NSAppleScript Error: \(error?.description ?? "Bilinmeyen hata")")
             }
-        } catch {
-            print("AppleScript Error: \(error.localizedDescription)")
         }
-        
         return nil
     }
     

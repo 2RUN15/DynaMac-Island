@@ -23,7 +23,7 @@ class AudioDeviceService: ObservableObject {
     }
     
     private func startPolling() {
-        timer = Timer.scheduledTimer(withTimeInterval: 0.15, repeats: true) { [weak self] _ in
+        timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
             guard let self = self else { return }
             Task { @MainActor in
                 self.fetchAudioState()
@@ -82,7 +82,7 @@ class AudioDeviceService: ObservableObject {
             
             if vol < 0 {
                 let now = Date()
-                if now.timeIntervalSince(self.lastAppleScriptFetch) >= 1.0 {
+                if now.timeIntervalSince(self.lastAppleScriptFetch) >= 3.0 {
                     vol = await Task.detached { self.getSystemVolumeAppleScript() }.value
                     self.lastAppleScriptFetch = now
                 } else {
@@ -196,8 +196,13 @@ class AudioDeviceService: ObservableObject {
     
     nonisolated private func getSystemVolumeAppleScript() -> Double {
         let script = "output volume of (get volume settings)"
-        if let result = ScriptHelper.run(script), let vol = Double(result) {
+        var err: NSDictionary? = nil
+        let task = NSAppleScript(source: script)
+        let eventResult = task?.executeAndReturnError(&err)
+        if err == nil, let val = eventResult?.stringValue, let vol = Double(val) {
             return vol
+        } else if err == nil, let val = eventResult?.int32Value {
+            return Double(val)
         }
         return 50.0
     }

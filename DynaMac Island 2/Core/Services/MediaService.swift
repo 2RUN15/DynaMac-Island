@@ -86,14 +86,33 @@ class MediaService: MediaServiceProtocol {
         )
         
         startPolling()
+        DistributedNotificationCenter.default().addObserver(
+            self,
+            selector: #selector(mediaStateDidChange),
+            name: NSNotification.Name("com.spotify.client.PlaybackStateChanged"),
+            object: nil
+        )
+        DistributedNotificationCenter.default().addObserver(
+            self,
+            selector: #selector(mediaStateDidChange),
+            name: NSNotification.Name("com.apple.Music.playerInfo"),
+            object: nil
+        )
     }
     
     deinit {
         timer?.invalidate()
     }
     
+
+    @objc private func mediaStateDidChange(_ notification: Notification) {
+        Task { @MainActor in
+            self.pollMediaStatus()
+        }
+    }
+
     private func startPolling() {
-        timer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
+        timer = Timer.scheduledTimer(withTimeInterval: 4.0, repeats: true) { [weak self] _ in
             self?.pollMediaStatus()
         }
         RunLoop.current.add(timer!, forMode: .common)
